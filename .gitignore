@@ -1,0 +1,15 @@
+data/raw/
+outputs/
+*.txt
+!data/fixtures/*.txt
+!tests/fixtures/*.txt
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+
