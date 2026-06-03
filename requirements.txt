@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+jieba
+matplotlib
+networkx
+streamlit
+flask
+pytest

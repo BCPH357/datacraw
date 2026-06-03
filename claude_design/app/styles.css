@@ -1,0 +1,218 @@
+/* =========================================================
+   LINE 群組人物誌 — 編輯雜誌感設計系統
+   ========================================================= */
+
+:root {
+  /* paper / ink */
+  --paper:      oklch(0.972 0.008 84);
+  --paper-2:    oklch(0.946 0.012 82);
+  --paper-3:    oklch(0.918 0.014 80);
+  --surface:    oklch(0.995 0.004 84);
+  --ink:        oklch(0.205 0.014 60);
+  --ink-2:      oklch(0.430 0.014 64);
+  --ink-3:      oklch(0.600 0.012 68);
+  --ink-4:      oklch(0.720 0.010 72);
+  --line:       oklch(0.882 0.013 80);
+  --line-2:     oklch(0.820 0.014 76);
+  --ink-rev:    oklch(0.972 0.008 84);
+
+  /* editorial green accent */
+  --accent:     oklch(0.585 0.118 152);
+  --accent-2:   oklch(0.470 0.092 152);
+  --accent-3:   oklch(0.930 0.040 152);
+
+  /* 8 role hues — same L/C, varied hue */
+  --r-core:   oklch(0.620 0.150 28);
+  --r-topic:  oklch(0.700 0.135 62);
+  --r-emoji:  oklch(0.760 0.130 88);
+  --r-image:  oklch(0.640 0.125 150);
+  --r-info:   oklch(0.640 0.105 222);
+  --r-night:  oklch(0.560 0.120 278);
+  --r-think:  oklch(0.600 0.130 322);
+  --r-stable: oklch(0.640 0.040 70);
+
+  --r-core-soft:   oklch(0.940 0.040 28);
+  --r-topic-soft:  oklch(0.948 0.040 62);
+  --r-emoji-soft:  oklch(0.952 0.045 88);
+  --r-image-soft:  oklch(0.945 0.040 150);
+  --r-info-soft:   oklch(0.945 0.035 222);
+  --r-night-soft:  oklch(0.940 0.040 278);
+  --r-think-soft:  oklch(0.945 0.040 322);
+  --r-stable-soft: oklch(0.940 0.015 70);
+
+  --shadow-sm: 0 1px 2px oklch(0.205 0.014 60 / 0.05), 0 2px 8px oklch(0.205 0.014 60 / 0.04);
+  --shadow-md: 0 2px 6px oklch(0.205 0.014 60 / 0.06), 0 12px 32px oklch(0.205 0.014 60 / 0.08);
+  --shadow-lg: 0 4px 12px oklch(0.205 0.014 60 / 0.08), 0 24px 60px oklch(0.205 0.014 60 / 0.12);
+
+  --serif: "Noto Serif TC", serif;
+  --sans:  "Noto Sans TC", system-ui, sans-serif;
+  --mono:  "Space Mono", ui-monospace, monospace;
+
+  --maxw: 1240px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.55;
+}
+
+#root { min-height: 100vh; }
+
+::selection { background: var(--accent-3); color: var(--ink); }
+
+/* ---------- type primitives ---------- */
+.kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 700;
+}
+.serif { font-family: var(--serif); }
+.mono  { font-family: var(--mono); }
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+
+.num { font-family: var(--serif); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.hairline { height: 1px; background: var(--line); border: 0; }
+.hairline-2 { height: 1px; background: var(--ink); border: 0; opacity: 0.85; }
+
+/* ---------- buttons ---------- */
+.btn {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--ink-rev);
+  padding: 11px 20px;
+  border-radius: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+  transition: transform .12s ease, background .15s ease, color .15s ease;
+}
+.btn:hover { transform: translateY(-1px); background: var(--accent-2); border-color: var(--accent-2); }
+.btn:active { transform: translateY(0); }
+.btn-ghost {
+  background: transparent; color: var(--ink); border-color: var(--line-2);
+}
+.btn-ghost:hover { background: var(--surface); border-color: var(--ink); color: var(--ink); }
+.btn-sm { padding: 7px 13px; font-size: 12.5px; }
+
+/* scrollbars */
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border: 3px solid var(--paper); border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ====================================================
+   SHELL
+   ==================================================== */
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+.rail {
+  position: sticky; top: 0; height: 100vh;
+  border-right: 1px solid var(--line);
+  background: var(--paper);
+  display: flex; flex-direction: column;
+  padding: 26px 0;
+}
+.rail-brand { padding: 0 24px 22px; }
+.rail-logo {
+  font-family: var(--serif); font-weight: 700; font-size: 22px;
+  letter-spacing: -0.02em; display: flex; align-items: center; gap: 9px;
+}
+.rail-logo .dot { width: 9px; height: 9px; background: var(--accent); border-radius: 50%; display:inline-block; }
+.rail-sub { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--ink-3); margin-top: 6px; text-transform: uppercase; }
+
+.rail-nav { display: flex; flex-direction: column; padding: 14px 14px; gap: 2px; }
+.rail-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px; cursor: pointer; color: var(--ink-2);
+  font-weight: 600; font-size: 14.5px; border: 1px solid transparent;
+  transition: background .14s ease, color .14s ease;
+  position: relative;
+}
+.rail-link:hover { background: var(--paper-2); color: var(--ink); }
+.rail-link.active { background: var(--ink); color: var(--ink-rev); }
+.rail-link.active .rail-ix { color: var(--ink-rev); opacity: .7; }
+.rail-ix { font-family: var(--mono); font-size: 11px; color: var(--ink-4); width: 16px; }
+
+.rail-foot { margin-top: auto; padding: 16px 24px 0; border-top: 1px solid var(--line); }
+.rail-meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); line-height: 1.8; }
+
+.main { min-width: 0; }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 40px 90px; }
+
+/* masthead */
+.masthead {
+  border-bottom: 1px solid var(--ink);
+  padding: 30px 0 22px; margin-bottom: 34px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+}
+.masthead-l { min-width: 0; }
+.masthead .edition { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; }
+.tag {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid var(--line-2); padding: 4px 9px; color: var(--ink-2);
+}
+.tag.solid { background: var(--ink); color: var(--ink-rev); border-color: var(--ink); }
+
+/* ====================================================
+   CARDS / PANELS
+   ==================================================== */
+.panel {
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.panel-pad { padding: 22px 24px; }
+.panel-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 16px 24px; border-bottom: 1px solid var(--line); gap: 12px;
+}
+.panel-title { font-family: var(--serif); font-size: 18px; font-weight: 700; }
+
+.grid { display: grid; gap: 18px; }
+
+/* metric stat */
+.stat .stat-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+.stat .stat-v { font-family: var(--serif); font-size: 42px; font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; margin-top: 4px; }
+.stat .stat-u { font-size: 14px; color: var(--ink-3); font-family: var(--sans); margin-left: 4px; }
+.stat .stat-d { font-size: 12.5px; color: var(--ink-2); margin-top: 5px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  padding: 3px 9px; border: 1px solid var(--line-2); color: var(--ink-2);
+  white-space: nowrap;
+}
+.chip .sw { width: 8px; height: 8px; border-radius: 2px; display:inline-block; }
+
+a, button { font-family: inherit; }
+
+/* hover affordances */
+.pcard { transition: transform .14s ease, box-shadow .18s ease, border-color .18s ease; }
+.pcard:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--line-2); }
+.sup-cell { transition: background .15s ease; }
+.sup-cell:hover { background: var(--paper-2) !important; }
+.bar-row { transition: background .12s ease; }
+.bar-row:hover { background: var(--paper-2); }
+
+/* fade/transition helpers — 內容永遠可見（避免擷取/環境造成卡在 opacity:0） */
+.view-enter { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}

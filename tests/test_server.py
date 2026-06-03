@@ -1,0 +1,48 @@
+import importlib.util
+import io
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture()
+def client():
+    spec = importlib.util.spec_from_file_location("line_server", ROOT / "app" / "server.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.app.config["TESTING"] = True
+    return module.app.test_client()
+
+
+def test_index_serves_upload_page(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    body = res.get_data(as_text=True)
+    assert "window.APP_DATA" not in body  # no demo data baked in
+    assert 'src="app/app.jsx"' in body  # boots the React app
+
+
+def test_analyze_returns_app_data(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},
+                      content_type="multipart/form-data")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["members"]
+    assert data["__embedded"] is False
+    assert data["group"]["userCount"] == len(data["members"])
+
+
+def test_analyze_rejects_garbage(client):
+    res = client.post("/analyze", data={"file": (io.BytesIO(b"not a chat"), "x.txt")},
+                      content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "error" in res.get_json()
+
+
+def test_sample_endpoint(client):
+    res = client.get("/sample")
+    assert res.status_code == 200
+    assert res.get_json()["members"]

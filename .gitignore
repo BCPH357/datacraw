@@ -3,6 +3,7 @@ outputs/
 *.txt
 !data/fixtures/*.txt
 !tests/fixtures/*.txt
+!requirements.txt
 __pycache__/
 .pytest_cache/
 .mypy_cache/
@@ -12,4 +13,6 @@ __pycache__/
 *.pyo
 *.pyd
 .DS_Store
+bug/
+/LINE 群組人物誌.html
 

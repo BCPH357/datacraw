@@ -1,54 +1,88 @@
-"""Streamlit UI for LINE chat persona analysis."""
+"""Streamlit UI for LINE chat persona analysis.
+
+Streamlit owns the upload and runs the analysis pipeline, then embeds the React
+editorial report (``claude_design/app``) full-height via ``components.html`` with
+the real ``APP_DATA`` injected.
+"""
 
 from __future__ import annotations
 
+import json
 import sys
-import tempfile
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src import clustering, features, parser, report, roles, viz
+from src import clustering, features, parser, report, roles, webreport
+
+ASSETS_DIR = ROOT / "claude_design" / "app"
 
 
-st.set_page_config(page_title="LINE Persona Analyzer", layout="wide")
-st.title("LINE Persona Analyzer")
+st.set_page_config(page_title="LINE 群組人物誌", layout="wide")
 
-uploaded = st.file_uploader("Upload LINE chat export", type=["txt"])
-if uploaded:
-    text = uploaded.getvalue().decode("utf-8-sig", errors="replace")
+
+def run_pipeline(text: str) -> dict:
+    """Run the full analysis pipeline on raw export text."""
+
     parsed = parser.parse_text(text)
     records = parser.to_dataframe(parsed)
     summary = parser.summarize(parsed)
+    if records.empty or records[~records["is_system"]].empty:
+        raise ValueError("找不到任何可分析的使用者訊息，請確認這是 LINE 匯出的 .txt 檔。")
+
     feature_frame = features.extract_features(records)
     clustered, metadata = clustering.cluster_users(feature_frame)
     role_table = roles.assign_roles(clustered)
     user_roles = roles.roles_by_user(clustered, role_table)
     personas = report.build_personas(user_roles)
     group_health = report.build_group_health(user_roles, metadata)
+    app_data = webreport.build_app_data(
+        records, feature_frame, clustered, user_roles, group_health, metadata, summary
+    )
+    return {
+        "app_data": app_data,
+        "personas": personas,
+        "group_health": group_health,
+        "summary": summary,
+    }
 
-    cols = st.columns(4)
-    cols[0].metric("Messages", summary["message_count"])
-    cols[1].metric("Users", summary["user_count"])
-    cols[2].metric("Health", group_health["group_health_score"])
-    cols[3].metric("Best K", metadata.get("best_k", 0))
 
-    st.subheader("Personas")
-    st.dataframe(user_roles[["role_name", "description", "message_count", "text_ratio", "sticker_ratio"]])
+uploaded = st.file_uploader("上傳 LINE 對話記錄 (.txt)", type=["txt"])
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        chart_paths = viz.generate_all(records, feature_frame, clustered, user_roles, temp_dir)
-        chart_cols = st.columns(2)
-        for index, chart_path in enumerate(chart_paths):
-            chart_cols[index % 2].image(str(chart_path))
-
-    st.subheader("Downloads")
-    st.download_button("personas.json", data=report.json.dumps(personas, ensure_ascii=False, indent=2), file_name="personas.json")
-    st.download_button("group_health.json", data=report.json.dumps(group_health, ensure_ascii=False, indent=2), file_name="group_health.json")
+if not uploaded:
+    st.title("LINE 群組人物誌")
+    st.info("上傳一份 LINE 匯出的 `.txt` 對話記錄，即可產生互動式人物誌報告。檔案只在本機處理，不會被保存。")
 else:
-    st.info("Upload a LINE `.txt` export to start.")
+    text = uploaded.getvalue().decode("utf-8-sig", errors="replace")
+    try:
+        result = run_pipeline(text)
+    except Exception as error:  # noqa: BLE001 - surface a friendly message
+        st.error(f"分析失敗：{error}")
+    else:
+        report_html = webreport.render_html(result["app_data"], ASSETS_DIR, embedded=True)
+        components.html(report_html, height=900, scrolling=True)
 
+        with st.expander("下載報告", expanded=False):
+            st.download_button(
+                "完整 HTML 報告 (可離線開啟)",
+                data=report_html,
+                file_name="line_persona_report.html",
+                mime="text/html",
+            )
+            st.download_button(
+                "personas.json",
+                data=json.dumps(result["personas"], ensure_ascii=False, indent=2),
+                file_name="personas.json",
+                mime="application/json",
+            )
+            st.download_button(
+                "group_health.json",
+                data=json.dumps(result["group_health"], ensure_ascii=False, indent=2),
+                file_name="group_health.json",
+                mime="application/json",
+            )
