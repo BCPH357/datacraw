@@ -13,18 +13,27 @@ import pandas as pd
 BIDI_RE = re.compile(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 DATE_RE = re.compile(r"^(?P<year>\d{4})[/.](?P<month>\d{1,2})[/.](?P<day>\d{1,2})")
 TIME_RE = re.compile(
-    r"^(?:(?P<period>上午|下午|AM|PM|am|pm)\s*)?(?P<hour>\d{1,2}):(?P<minute>\d{2})\t(?P<body>.*)$"
+    r"^(?:(?P<period>\u4e0a\u5348|\u4e0b\u5348|AM|PM|am|pm)\s*)?(?P<hour>\d{1,2}):(?P<minute>\d{2})\t(?P<body>.*)$"
 )
 SPACE_TIME_RE = re.compile(r"^(?P<hour>\d{1,2}):(?P<minute>\d{2})\s+(?P<body>.*)$")
 URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+ENGLISH_ALIAS_RE = re.compile(r"^[A-Za-z][\w.-]*$")
+
+SYSTEM_EVENT_PATTERNS = [
+    re.compile(r".*\u5df2\u6536\u56de\u8a0a\u606f$"),
+    re.compile(r".*\u6536\u56de\u8a0a\u606f$"),
+    re.compile(r".*(?:\u52a0\u5165|\u9000\u51fa|\u96e2\u958b).*(?:\u7fa4\u7d44|\u804a\u5929|\u7fa4)$"),
+    re.compile(r".*\b(?:join|joined|left|leave)\b.*", re.IGNORECASE),
+    re.compile(r".*(?:invited|removed).*(?:group|chat).*", re.IGNORECASE),
+]
 
 MEDIA_TYPES = {
-    "[貼圖]": "sticker",
-    "[照片]": "image",
-    "[圖片]": "image",
-    "[影片]": "video",
-    "[檔案]": "file",
-    "[記事本]": "note",
+    "[\u8cbc\u5716]": "sticker",
+    "[\u7167\u7247]": "image",
+    "[\u5716\u7247]": "image",
+    "[\u5f71\u7247]": "video",
+    "[\u6a94\u6848]": "file",
+    "[\u8a18\u4e8b\u672c]": "note",
 }
 
 
@@ -46,10 +55,10 @@ def normalize_time(period: str | None, hour: int, minute: int) -> str:
     """Convert LINE AM/PM time strings to 24-hour HH:MM."""
 
     normalized_period = (period or "").lower()
-    if period == "上午" or normalized_period == "am":
+    if period == "\u4e0a\u5348" or normalized_period == "am":
         if hour == 12:
             hour = 0
-    elif period == "下午" or normalized_period == "pm":
+    elif period == "\u4e0b\u5348" or normalized_period == "pm":
         if hour != 12:
             hour += 12
     return f"{hour:02d}:{minute:02d}"
@@ -67,20 +76,22 @@ def detect_message_type(message: str) -> tuple[str, bool]:
     return "text", has_url
 
 
-def split_space_message(body: str) -> tuple[str, str]:
-    """Split the space-delimited LINE export variant into user and message.
+def is_system_event(text: str) -> bool:
+    """Return True for LINE system events that should be dropped."""
 
-    Some LINE exports use tabs, while the local dataset uses
-    ``HH:MM name message``. A Chinese surname followed by an English alias,
-    such as ``段 Duan``, is treated as a two-token display name.
-    """
+    normalized = clean_control_chars(text).strip()
+    return any(pattern.match(normalized) for pattern in SYSTEM_EVENT_PATTERNS)
+
+
+def split_space_message(body: str) -> tuple[str, str]:
+    """Split the local space-delimited LINE export variant into user/message."""
 
     parts = body.split(maxsplit=2)
     if not parts:
         return "SYSTEM", ""
     if len(parts) == 1:
         return clean_control_chars(parts[0]), ""
-    if len(parts) >= 3 and len(parts[0]) == 1 and re.match(r"^[A-Za-z][\w.-]*$", parts[1]):
+    if len(parts) >= 3 and len(parts[0]) == 1 and ENGLISH_ALIAS_RE.match(parts[1]):
         return clean_control_chars(f"{parts[0]} {parts[1]}"), clean_control_chars(parts[2])
     return clean_control_chars(parts[0]), clean_control_chars(body[len(parts[0]) :].strip())
 
@@ -90,18 +101,38 @@ def _group_name_from_header(lines: Iterable[str]) -> str | None:
         line = clean_control_chars(raw_line)
         if line.startswith("[LINE]"):
             title = line.removeprefix("[LINE]").strip()
-            title = re.sub(r"(的聊天|聊天記錄|Chat history).*$", "", title).strip()
+            title = re.sub(r"(?:\u7684\u804a\u5929|\u804a\u5929\u8a18\u9304|Chat history).*$", "", title).strip()
             return title or None
     return None
 
 
-def parse_text(text: str) -> ParsedChat:
-    """Parse LINE export text.
+def _append_record(
+    records: list[dict],
+    current_date: str,
+    time_24h: str,
+    user: str,
+    message: str,
+) -> None:
+    if user == "SYSTEM" or is_system_event(message) or is_system_event(f"{user}{message}"):
+        return
+    message_type, has_url = detect_message_type(message)
+    message_dt = datetime.fromisoformat(f"{current_date}T{time_24h}:00")
+    records.append(
+        {
+            "date": current_date,
+            "time": time_24h,
+            "datetime": message_dt.isoformat(),
+            "user": user,
+            "message": message,
+            "type": message_type,
+            "is_system": False,
+            "has_url": has_url,
+        }
+    )
 
-    The parser accepts common Traditional Chinese LINE exports:
-    date rows, message rows separated by tabs, system rows with an empty user
-    field, and continuation lines appended to the previous message.
-    """
+
+def parse_text(text: str) -> ParsedChat:
+    """Parse LINE export text into normalized message records."""
 
     lines = text.splitlines()
     current_date: str | None = None
@@ -112,7 +143,7 @@ def parse_text(text: str) -> ParsedChat:
         line = clean_control_chars(raw_line.rstrip("\n"))
         if not line:
             continue
-        if line.startswith("[LINE]") or "儲存日期" in line or "Saved on" in line:
+        if line.startswith("[LINE]") or "\u5132\u5b58\u65e5\u671f" in line or "Saved on" in line:
             continue
 
         date_match = DATE_RE.match(line)
@@ -125,75 +156,39 @@ def parse_text(text: str) -> ParsedChat:
 
         time_match = TIME_RE.match(line)
         if time_match and current_date:
-            body = time_match.group("body")
-            fields = body.split("\t")
+            fields = time_match.group("body").split("\t")
             time_24h = normalize_time(
                 time_match.group("period"),
                 int(time_match.group("hour")),
                 int(time_match.group("minute")),
             )
-            message_dt = datetime.fromisoformat(f"{current_date}T{time_24h}:00")
-
             if len(fields) >= 2 and fields[0].strip():
                 user = clean_control_chars(fields[0])
                 message = clean_control_chars("\t".join(fields[1:]))
-                is_system = False
             else:
                 user = "SYSTEM"
                 message = clean_control_chars("\t".join(part for part in fields if part))
-                is_system = True
-
-            message_type, has_url = detect_message_type(message)
-            if is_system:
-                message_type = "system"
-
-            records.append(
-                {
-                    "date": current_date,
-                    "time": time_24h,
-                    "datetime": message_dt.isoformat(),
-                    "user": user,
-                    "message": message,
-                    "type": message_type,
-                    "is_system": is_system,
-                    "has_url": has_url,
-                }
-            )
+            _append_record(records, current_date, time_24h, user, message)
             continue
 
         space_time_match = SPACE_TIME_RE.match(line)
         if space_time_match and current_date:
+            raw_body = clean_control_chars(space_time_match.group("body"))
+            if is_system_event(raw_body):
+                continue
             time_24h = normalize_time(
                 None,
                 int(space_time_match.group("hour")),
                 int(space_time_match.group("minute")),
             )
-            user, message = split_space_message(space_time_match.group("body"))
-            message_dt = datetime.fromisoformat(f"{current_date}T{time_24h}:00")
-            is_system = user == "SYSTEM"
-            message_type, has_url = detect_message_type(message)
-            if is_system:
-                message_type = "system"
-            records.append(
-                {
-                    "date": current_date,
-                    "time": time_24h,
-                    "datetime": message_dt.isoformat(),
-                    "user": user,
-                    "message": message,
-                    "type": message_type,
-                    "is_system": is_system,
-                    "has_url": has_url,
-                }
-            )
+            user, message = split_space_message(raw_body)
+            _append_record(records, current_date, time_24h, user, message)
             continue
 
         if records:
             previous = records[-1]
             previous["message"] = f"{previous['message']}\n{line}".strip()
             previous["type"], previous["has_url"] = detect_message_type(previous["message"])
-            if previous["is_system"]:
-                previous["type"] = "system"
 
     return ParsedChat(records=records, group_name=group_name)
 
@@ -247,3 +242,4 @@ def summarize(parsed: ParsedChat | list[dict]) -> dict:
             "end": str(frame["date"].max()),
         },
     }
+
