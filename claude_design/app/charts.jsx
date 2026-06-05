@@ -18,6 +18,18 @@ function fmtVal(key, val) {
 }
 function cvarOf(role) { return "var(" + window.APP_DATA.ROLES[role].cvar + ")"; }
 function softOf(role) { return "var(" + window.APP_DATA.ROLES[role].soft + ")"; }
+function useMobile(bp = 760) {
+  const q = "(max-width: " + bp + "px)";
+  const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(q);
+    const h = (e) => setM(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", h) : mq.addListener(h);
+    setM(mq.matches);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", h) : mq.removeListener(h); };
+  }, []);
+  return m;
+}
 
 /* ====================================================
    雷達圖
@@ -142,13 +154,13 @@ function BarRanking({ rows, onPick }) {
 /* ====================================================
    時段熱力圖
    ==================================================== */
-function Heatmap({ data, onPick }) {
+function Heatmap({ data, onPick, mobile = false, dotted = false }) {
   const hours = Array.from({ length: 24 }, (_, h) => h);
   const ticks = [0, 6, 12, 18, 23];
   return (
-    <div style={{ overflowX: "auto" }}>
-      <div style={{ minWidth: 560 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "62px repeat(24, 1fr)", gap: 3 }}>
+    <div style={{ overflowX: mobile ? "visible" : "auto" }}>
+      <div style={{ minWidth: mobile ? 0 : 560 }}>
+        <div style={{ display: "grid", gridTemplateColumns: (mobile ? "40px" : "62px") + " repeat(24, " + (mobile ? "minmax(0, 1fr)" : "1fr") + ")", gap: mobile ? 1.5 : 3 }}>
           <div></div>
           {hours.map((h) => (
             <div key={h} className="mono" style={{ fontSize: 9, color: "var(--ink-4)", textAlign: "center", height: 14 }}>
@@ -159,18 +171,22 @@ function Heatmap({ data, onPick }) {
             <React.Fragment key={row.id}>
               <div onClick={() => onPick && onPick(row.id)}
                 style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center",
-                  justifyContent: "flex-end", paddingRight: 8, cursor: onPick ? "pointer" : "default" }}>{row.name}</div>
-              {row.hours.map((v, h) => (
+                  justifyContent: mobile ? "flex-start" : "flex-end", paddingRight: mobile ? 4 : 8, cursor: onPick ? "pointer" : "default" }}>{row.name}</div>
+              {row.hours.map((v, h) => dotted ? (
+                <div key={h} style={{ aspectRatio: "1 / 1.5", display: "grid", placeItems: "center" }}>
+                  <span style={{ width: Math.max(2, 7 * v), height: Math.max(2, 7 * v), borderRadius: 999, background: cvarOf(row.role), opacity: 0.25 + v * 0.75 }} />
+                </div>
+              ) : (
                 <div key={h} title={`${row.name} · ${String(h).padStart(2, "0")}:00`}
-                  style={{ aspectRatio: "1 / 1.05", background: cvarOf(row.role),
+                  style={{ aspectRatio: mobile ? "1 / 1.5" : "1 / 1.05", background: cvarOf(row.role),
                     opacity: 0.10 + v * 0.9, borderRadius: 1 }} />
               ))}
             </React.Fragment>
           ))}
         </div>
         <div style={{ display: "flex", gap: 16, marginTop: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="kicker">作息</span>
-          {[["00–06", "夜"], ["06–12", "晨"], ["12–18", "午"], ["18–24", "晚"]].map(([t, l]) => (
+          {!mobile && <span className="kicker">作息</span>}
+          {[["00\u201306", "\u591c"], ["06\u201312", "\u6668"], ["12\u201318", "\u5348"], ["18\u201324", "\u665a"]].map(([t, l]) => (
             <span key={t} className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{l} {t}</span>
           ))}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7 }}>
@@ -238,4 +254,37 @@ function Scatter({ points, members, meta, size = 440, onPick }) {
   );
 }
 
-Object.assign(window, { Radar, Donut, BarRanking, Heatmap, Scatter, fmtVal, cvarOf, softOf });
+/* 分群卡片（手機用，取代散佈圖） */
+function ClusterCards({ meta, scatter, members, onPick }) {
+  const byId = Object.fromEntries(members.map((m) => [m.id, m]));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 1, background: "var(--line)", border: "1px solid var(--line)" }}>
+      {meta.clusters.map((c) => {
+        const mem = scatter.filter((p) => p.c === c.id).map((p) => byId[p.id]).filter(Boolean);
+        return (
+          <div key={c.id} style={{ background: "var(--surface)", padding: "15px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 11 }}>
+              <span style={{ width: 11, height: 11, borderRadius: 3, background: `var(${c.cvar})`, flex: "0 0 auto" }} />
+              <span className="serif" style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{mem.length} 位</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {mem.map((m) => (
+                <button key={m.id} onClick={() => onPick && onPick(m.id)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 10px 6px 7px",
+                    border: "1px solid var(--line-2)", background: "var(--paper)", cursor: "pointer" }}>
+                  <span style={{ width: 22, height: 22, flex: "0 0 auto", background: softOf(m.role), border: `1.5px solid ${cvarOf(m.role)}`, display: "grid", placeItems: "center" }}>
+                    <span className="serif" style={{ fontSize: 11, fontWeight: 700, color: cvarOf(m.role), lineHeight: 1 }}>{window.APP_DATA.ROLES[m.role].glyph}</span>
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+Object.assign(window, { Radar, Donut, BarRanking, Heatmap, Scatter, ClusterCards, useMobile, fmtVal, cvarOf, softOf });

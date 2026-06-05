@@ -1,5 +1,6 @@
 /* =========================================================
-   頁面視圖
+   頁面視圖（一）：區塊標頭 / 儀表 / 上傳 / 載入 / 總覽
+   桌面與手機共用，透過 mobile 旗標切換版面
    ========================================================= */
 
 /* 區塊標頭 */
@@ -23,9 +24,6 @@ function Gauge({ value, size = 220 }) {
   const cx = size / 2, cy = size / 2;
   const a0 = Math.PI, a1 = 0;
   const ang = a0 + (a1 - a0) * (value / 100);
-  // Top semicircle: subtract sin so points sit above the center line (SVG y is
-  // inverted). Using +sin placed the value arc + marker on the bottom half,
-  // making the indicator swoosh downward across the score.
   const p = (a, rad = r) => [cx + Math.cos(a) * rad, cy - Math.sin(a) * rad];
   const [sx, sy] = p(a0), [ex, ey] = p(a1), [vx, vy] = p(ang);
   const large = 0;
@@ -33,8 +31,7 @@ function Gauge({ value, size = 220 }) {
   return (
     <svg viewBox={`0 0 ${size} ${size * 0.62}`} width="100%" style={{ display: "block" }}>
       <path d={`M ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke="var(--paper-3)" strokeWidth="14" strokeLinecap="butt" />
-      <path d={`M ${sx} ${sy} A ${r} ${r} 0 0 1 ${vx} ${vy}`} fill="none" stroke={col} strokeWidth="14" strokeLinecap="round"
-        style={{ transition: "stroke-dashoffset 1s ease" }} />
+      <path d={`M ${sx} ${sy} A ${r} ${r} 0 0 1 ${vx} ${vy}`} fill="none" stroke={col} strokeWidth="14" strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease" }} />
       <circle cx={vx} cy={vy} r="7" fill="var(--surface)" stroke={col} strokeWidth="3" />
       <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontFamily: "var(--serif)", fontWeight: 700, fontSize: 52, fill: "var(--ink)" }}>{value}</text>
       <text x={cx} y={cy + 18} textAnchor="middle" style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: ".12em", fill: "var(--ink-3)" }}>/ 100 健康分數</text>
@@ -50,12 +47,12 @@ function UploadView({ onStart, error }) {
   const pick = () => inputRef.current && inputRef.current.click();
   const handleFiles = (files) => { const f = files && files[0]; if (f) onStart(f); };
   return (
-    <div style={{ maxWidth: 920, margin: "0 auto", padding: "min(9vh, 90px) 40px 80px" }}>
+    <div style={{ maxWidth: 920, margin: "0 auto", padding: "min(9vh, 90px) clamp(20px, 5vw, 40px) 80px" }}>
       <div className="kicker" style={{ marginBottom: 22 }}>datacaw — LINE 群組人物誌報告</div>
-      <h1 style={{ fontSize: "clamp(44px, 7vw, 82px)", lineHeight: 1.02, letterSpacing: "-0.02em", maxWidth: 14 + "ch" }}>
+      <h1 style={{ fontSize: "clamp(40px, 9vw, 82px)", lineHeight: 1.02, letterSpacing: "-0.02em", maxWidth: 14 + "ch" }}>
         你的群組，<br />其實是一齣<span style={{ color: "var(--accent)" }}>群像劇</span>。
       </h1>
-      <p style={{ fontSize: 18, color: "var(--ink-2)", maxWidth: 560, marginTop: 22, lineHeight: 1.6 }}>
+      <p style={{ fontSize: "clamp(15px, 4vw, 18px)", color: "var(--ink-2)", maxWidth: 560, marginTop: 22, lineHeight: 1.6 }}>
         上傳一份 LINE 對話記錄，我們會解析每個人的發言節奏、作息與互動方式，
         替群組裡的每個人寫一張專屬的「人物誌角色卡」。
       </p>
@@ -64,19 +61,16 @@ function UploadView({ onStart, error }) {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
         style={{ marginTop: 40, border: `1.5px dashed ${drag ? "var(--accent)" : "var(--line-2)"}`,
-          background: drag ? "var(--accent-3)" : "var(--surface)", padding: "44px 32px", textAlign: "center",
+          background: drag ? "var(--accent-3)" : "var(--surface)", padding: "clamp(32px, 7vw, 44px) 24px", textAlign: "center",
           transition: "all .15s ease" }}>
-        <div className="serif" style={{ fontSize: 22, fontWeight: 700 }}>拖曳 LINE 對話記錄 <span className="mono" style={{ fontSize: 15, color: "var(--ink-3)" }}>.txt</span></div>
+        <div className="serif" style={{ fontSize: "clamp(19px, 5vw, 22px)", fontWeight: 700 }}>拖曳 LINE 對話記錄 <span className="mono" style={{ fontSize: 15, color: "var(--ink-3)" }}>.txt</span></div>
         <div style={{ color: "var(--ink-3)", fontSize: 13.5, marginTop: 8 }}>LINE 聊天室 → 設定 → 匯出聊天記錄。檔案只在本機處理，不會被保存。</div>
-        <input ref={inputRef} type="file" accept=".txt,text/plain" style={{ display: "none" }}
-          onChange={(e) => handleFiles(e.target.files)} />
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24 }}>
+        <input ref={inputRef} type="file" accept=".txt,text/plain" style={{ display: "none" }} onChange={(e) => handleFiles(e.target.files)} />
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
           <button className="btn" onClick={pick}>選擇檔案</button>
           <button className="btn btn-ghost" onClick={() => onStart("sample")}>使用範例資料 ↗</button>
         </div>
-        {error && (
-          <div style={{ marginTop: 20, color: "var(--r-core)", fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>
-        )}
+        {error && (<div style={{ marginTop: 20, color: "var(--r-core)", fontSize: 14, fontWeight: 600 }}>⚠ {error}</div>)}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, marginTop: 48,
@@ -104,19 +98,17 @@ function LoadingView({ onDone }) {
   }, [i]);
   const pct = Math.min(100, Math.round((i / steps.length) * 100));
   return (
-    <div style={{ maxWidth: 560, margin: "0 auto", padding: "16vh 40px" }}>
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "16vh clamp(20px, 5vw, 40px)" }}>
       <div className="kicker" style={{ marginBottom: 18 }}>分析中 · ANALYSING</div>
-      <h2 className="serif" style={{ fontSize: 34 }}>正在解讀你的群組 💬</h2>
+      <h2 className="serif" style={{ fontSize: "clamp(28px, 7vw, 34px)" }}>正在解讀你的群組 💬</h2>
       <div style={{ height: 3, background: "var(--paper-3)", marginTop: 28, position: "relative" }}>
         <div style={{ position: "absolute", inset: 0, width: pct + "%", background: "var(--accent)", transition: "width .5s ease" }} />
       </div>
       <div style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
         {steps.map((s, k) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", gap: 12,
-            opacity: k <= i ? 1 : 0.32, transition: "opacity .3s ease" }}>
-            <span className="mono" style={{ fontSize: 13, width: 18,
-              color: k < i ? "var(--accent)" : "var(--ink-3)" }}>{k < i ? "✓" : k === i ? "▸" : "·"}</span>
-            <span style={{ fontSize: 15, fontWeight: k === i ? 600 : 400 }}>{s}</span>
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 12, opacity: k <= i ? 1 : 0.32, transition: "opacity .3s ease" }}>
+            <span className="mono" style={{ fontSize: 13, width: 18, color: k < i ? "var(--accent)" : "var(--ink-3)" }}>{k < i ? "✓" : k === i ? "▸" : "·"}</span>
+            <span style={{ fontSize: 15, fontWeight: k === i ? 600 : 400, whiteSpace: "nowrap" }}>{s}</span>
           </div>
         ))}
       </div>
@@ -125,7 +117,7 @@ function LoadingView({ onDone }) {
 }
 
 /* ---------- 總覽 ---------- */
-function OverviewView({ onOpenMember, goCharts }) {
+function OverviewView({ mobile, onOpenMember, goCharts }) {
   const D = window.APP_DATA;
   const g = D.group;
   const donutData = Object.entries(D.roleDist).map(([role, v]) => ({ label: role, value: v, color: cvarOf(role) }));
@@ -139,22 +131,35 @@ function OverviewView({ onOpenMember, goCharts }) {
 
   return (
     <div className="view-enter">
-      <div className="masthead">
-        <div className="masthead-l">
-          <div className="edition">
-            <span className="tag solid">人物誌報告 No.01</span>
-            <span className="tag">{g.range}</span>
+      {/* masthead — 手機用刊頭橫幅，桌面用大標題 */}
+      {mobile ? (
+        <div style={{ border: "1px solid var(--ink)", marginBottom: 22 }}>
+          <div style={{ background: "var(--ink)", color: "var(--ink-rev)", padding: "9px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <span className="mono" style={{ fontSize: 10.5, letterSpacing: ".12em" }}>人物誌報告 No.01</span>
+            <span className="mono" style={{ fontSize: 10, letterSpacing: ".06em", opacity: .8, whiteSpace: "nowrap" }}>{g.range}</span>
           </div>
-          <h1 style={{ fontSize: "clamp(36px, 5vw, 58px)", lineHeight: 1.02 }}>{g.name} <span style={{ fontSize: "0.7em" }}>{g.emoji}</span></h1>
+          <div style={{ padding: "18px 16px" }}>
+            <h1 style={{ fontSize: "clamp(32px, 9vw, 40px)", lineHeight: 1.05 }}>{g.name} <span style={{ fontSize: "0.72em" }}>{g.emoji}</span></h1>
+          </div>
         </div>
-        <div style={{ textAlign: "right", flex: "0 0 auto" }}>
-          <div className="kicker">涵蓋期間</div>
-          <div className="num" style={{ fontSize: 30 }}>{g.days}<span className="stat-u">天</span></div>
+      ) : (
+        <div className="masthead">
+          <div className="masthead-l">
+            <div className="edition">
+              <span className="tag solid">人物誌報告 No.01</span>
+              <span className="tag">{g.range}</span>
+            </div>
+            <h1 style={{ fontSize: "clamp(36px, 5vw, 58px)", lineHeight: 1.02 }}>{g.name} <span style={{ fontSize: "0.7em" }}>{g.emoji}</span></h1>
+          </div>
+          <div style={{ textAlign: "right", flex: "0 0 auto" }}>
+            <div className="kicker">涵蓋期間</div>
+            <div className="num" style={{ fontSize: 30 }}>{g.days}<span className="stat-u">天</span></div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 指標列 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--line)",
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 1, background: "var(--line)",
         border: "1px solid var(--line)", marginBottom: 34 }}>
         {[["訊息總數", g.messageCount.toLocaleString("en-US"), ""], ["參與成員", g.userCount, "人"],
           ["群組健康", g.health, "/100"], ["角色種類", Object.keys(D.roleDist).length, "種"]].map(([k, v, u], i) => (
@@ -166,10 +171,10 @@ function OverviewView({ onOpenMember, goCharts }) {
       </div>
 
       {/* 健康 + 角色分布 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.25fr 1fr", gap: 18, marginBottom: 34 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1.25fr 1fr", gap: 18, marginBottom: 34 }}>
         <div className="panel">
           <div className="panel-head"><span className="panel-title">群組健康度</span><span className="kicker">GROUP HEALTH</span></div>
-          <div className="panel-pad" style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 28, alignItems: "center" }}>
+          <div className="panel-pad" style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "260px 1fr", gap: mobile ? 16 : 28, alignItems: "center" }}>
             <Gauge value={g.health} />
             <div>
               <p className="serif" style={{ fontSize: 18, lineHeight: 1.5, margin: "0 0 16px" }}>
@@ -193,8 +198,8 @@ function OverviewView({ onOpenMember, goCharts }) {
 
         <div className="panel">
           <div className="panel-head"><span className="panel-title">角色分布</span><span className="kicker">ROLES</span></div>
-          <div className="panel-pad" style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 16, alignItems: "center" }}>
-            <Donut data={donutData} size={150} thickness={22} onHover={setHover} />
+          <div className="panel-pad" style={{ display: "grid", gridTemplateColumns: mobile ? "130px 1fr" : "150px 1fr", gap: 16, alignItems: "center" }}>
+            <Donut data={donutData} size={mobile ? 130 : 150} thickness={mobile ? 20 : 22} onHover={setHover} />
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {donutData.map((d) => (
                 <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 9, padding: "3px 0",
@@ -211,7 +216,7 @@ function OverviewView({ onOpenMember, goCharts }) {
 
       {/* 群組之最 */}
       <SectionHead kicker="HALL OF FAME" title="群組之最" note="每個群組都有幾個無法取代的角色。" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--line)",
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, 1fr)", gap: 1, background: "var(--line)",
         border: "1px solid var(--line)", marginBottom: 36 }}>
         {D.superlatives.map((s, i) => (
           <div key={i} style={{ background: "var(--surface)", padding: "20px 22px", cursor: "pointer" }} className="sup-cell"
@@ -230,8 +235,8 @@ function OverviewView({ onOpenMember, goCharts }) {
         ))}
       </div>
 
-      {/* 觀察重點 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      {/* 觀察重點 + 分群 */}
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 18 }}>
         <div className="panel">
           <div className="panel-head"><span className="panel-title">觀察重點</span><span className="kicker">NOTES</span></div>
           <div className="panel-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
