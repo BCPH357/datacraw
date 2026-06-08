@@ -7,4 +7,5 @@ networkx
 streamlit
 flask
 openai
+python-dotenv
 pytest

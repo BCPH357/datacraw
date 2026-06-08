@@ -11,9 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, abort, jsonify, request, send_from_directory
 
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
