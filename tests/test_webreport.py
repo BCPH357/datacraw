@@ -302,6 +302,15 @@ def test_heatmap_rows_normalized():
         assert abs(max(row["hours"]) - 1.0) < 1e-6  # at least one peak hour
 
 
+def test_cluster_meta_exposes_explained_variance():
+    app_data, _, metadata = _build()
+    assert "explainedVariance" in app_data["clusterMeta"]
+    assert app_data["clusterMeta"]["explainedVariance"] == round(
+        metadata["explained_variance_2d"], 4
+    )
+    assert 0.0 < app_data["clusterMeta"]["explainedVariance"] <= 1.0
+
+
 def test_role_dist_and_cluster_meta():
     app_data, feature_frame, metadata = _build()
     assert sum(app_data["roleDist"].values()) == len(feature_frame)

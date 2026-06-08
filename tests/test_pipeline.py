@@ -80,6 +80,44 @@ def test_cluster_users_rejects_impossible_cluster_count():
         clustering.cluster_users(feature_frame, cluster_count=99)
 
 
+def test_cluster_users_reports_pca_metadata():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+
+    _, metadata = clustering.cluster_users(feature_frame)
+
+    # Clustering now happens in the 2D PCA space the scatter plot shows.
+    assert metadata["pca_components"] == 2
+    assert 0.0 < metadata["explained_variance_2d"] <= 1.0
+
+
+def test_cluster_users_auto_selects_k_by_index_vote():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+
+    _, metadata = clustering.cluster_users(feature_frame)
+
+    # Three internal indices each vote; the winner must be the most-voted k and
+    # must agree with the reported best_k. This replaces the old silhouette-only
+    # selection that always collapsed to k=2 on continuous data.
+    votes = {int(k): v for k, v in metadata["k_votes"].items()}
+    assert sum(votes.values()) == 3
+    best = metadata["best_k"]
+    assert votes[best] == max(votes.values())
+    assert metadata["calinski_harabasz_scores"]
+    assert metadata["davies_bouldin_scores"]
+
+
+def test_cluster_users_requested_count_skips_voting():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+
+    _, metadata = clustering.cluster_users(feature_frame, cluster_count=3)
+
+    assert metadata["best_k"] == 3
+    assert metadata["k_votes"] == {"3": 3}
+
+
 def test_analyze_text_rule_mode_has_analysis_metadata():
     text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
     result = pipeline.analyze_text(text, mode="rule")

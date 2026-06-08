@@ -51,7 +51,7 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCoun
     ["ai_cluster", "AI 分群命名", "先分群，再由 AI 解釋各群角色"],
   ];
   const clusterOptions = [
-    ["auto", "自動選擇", "用 silhouette score 選出資料最明顯的分群數"],
+    ["auto", "自動選擇", "在 2D 投影上用三項指標投票選出分群數"],
     ["3", "3 群", "較粗略的角色輪廓"],
     ["4", "4 群", "展示與可解釋性較平衡"],
     ["5", "5 群", "更細的角色差異"],

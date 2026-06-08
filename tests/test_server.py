@@ -60,6 +60,26 @@ def test_frontend_assets_include_excluded_members_and_token_usage_ui(client):
     assert "tokenUsage" in views_js
 
 
+def test_frontend_assets_surface_explained_variance(client):
+    views_js = client.get("/app/views2.jsx").get_data(as_text=True)
+
+    assert "explainedVariance" in views_js
+    assert "解釋變異" in views_js
+
+
+def test_analyze_surfaces_pca_explained_variance(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "rule", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    data = res.get_json()
+    assert res.status_code == 200
+    assert 0.0 < data["clusterMeta"]["explainedVariance"] <= 1.0
+
+
 def test_analyze_returns_app_data(client):
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
     res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},

@@ -241,7 +241,7 @@ function ChartsView({ mobile, onOpenMember }) {
       </div>
 
       <div className="panel">
-        <div className="panel-head"><span className="panel-title">行為分群</span><span className="kicker">PCA · K={D.clusterMeta.best_k} · 輪廓係數 {D.clusterMeta.silhouette}</span></div>
+        <div className="panel-head"><span className="panel-title">行為分群</span><span className="kicker">PCA · K={D.clusterMeta.best_k} · 解釋變異 {Math.round((D.clusterMeta.explainedVariance || 0) * 100)}% · 輪廓係數 {D.clusterMeta.silhouette}</span></div>
         <div className="panel-pad" style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 240px", gap: 24, alignItems: "center" }}>
           {mobile
             ? <ClusterCards meta={D.clusterMeta} scatter={D.scatter} members={D.members} onPick={onOpenMember} />

@@ -328,7 +328,7 @@ def _empty_app_data(summary: dict[str, Any]) -> dict[str, Any]:
         "members": [], "ROLES": ROLES, "AXES": AXES, "FEATURES": FEATURES,
         "roleDist": {}, "superlatives": [], "observations": [],
         "heatmap": [], "scatter": [],
-        "clusterMeta": {"best_k": 0, "silhouette": 0.0, "clusters": []},
+        "clusterMeta": {"best_k": 0, "silhouette": 0.0, "explainedVariance": 0.0, "clusters": []},
         "analysisMode": "rule",
         "clusterSelection": "auto",
         "clusterInterpretations": [],
@@ -460,6 +460,7 @@ def _build_cluster_meta(user_roles: pd.DataFrame, metadata: dict[str, Any]) -> d
     best_k = int((metadata or {}).get("best_k", 1) or 1)
     silhouette_scores = (metadata or {}).get("silhouette_scores", {}) or {}
     silhouette = float(silhouette_scores.get(str(best_k), 0.0) or 0.0)
+    explained_variance = float((metadata or {}).get("explained_variance_2d", 0.0) or 0.0)
 
     clusters_dict: dict[int, dict[str, Any]] = {}
     if "cluster" in user_roles.columns:
@@ -487,7 +488,12 @@ def _build_cluster_meta(user_roles: pd.DataFrame, metadata: dict[str, Any]) -> d
     else:
         clusters = []
 
-    return {"best_k": best_k, "silhouette": round(silhouette, 4), "clusters": clusters}
+    return {
+        "best_k": best_k,
+        "silhouette": round(silhouette, 4),
+        "explainedVariance": round(explained_variance, 4),
+        "clusters": clusters,
+    }
 
 
 # ---------------------------------------------------------------------------
