@@ -4,6 +4,7 @@ __all__ = [
     "parser",
     "features",
     "clustering",
+    "cluster_interpreter",
     "roles",
     "report",
     "viz",
