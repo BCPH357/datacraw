@@ -29,8 +29,11 @@ def test_frontend_assets_include_analysis_mode_ui(client):
     views_js = client.get("/app/views.jsx").get_data(as_text=True)
 
     assert "analysisMode" in app_js
+    assert "clusterCount" in app_js
     assert "規則角色分析" in views_js
     assert "AI 分群命名" in views_js
+    assert "分群數量" in views_js
+    assert "自動選擇" in views_js
     assert "AIClusterInterpretations" in views_js
 
 
@@ -57,6 +60,20 @@ def test_analyze_accepts_rule_mode(client):
     assert res.get_json()["analysisMode"] == "rule"
 
 
+def test_analyze_accepts_requested_cluster_count(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "rule", "cluster_count": "4", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    data = res.get_json()
+    assert res.status_code == 200
+    assert data["clusterMeta"]["best_k"] == 4
+    assert data["clusterSelection"] == "4"
+
+
 def test_analyze_ai_mode_without_key_returns_error(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
@@ -81,3 +98,10 @@ def test_sample_endpoint(client):
     res = client.get("/sample")
     assert res.status_code == 200
     assert res.get_json()["members"]
+
+
+def test_sample_endpoint_accepts_requested_cluster_count(client):
+    res = client.get("/sample?cluster_count=4")
+
+    assert res.status_code == 200
+    assert res.get_json()["clusterMeta"]["best_k"] == 4

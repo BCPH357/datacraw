@@ -14,7 +14,11 @@ from . import cluster_interpreter, clustering, features, parser, report, roles, 
 VALID_ANALYSIS_MODES = {"rule", "ai_cluster"}
 
 
-def analyze_text(text: str, mode: str = "rule") -> dict[str, Any]:
+def analyze_text(
+    text: str,
+    mode: str = "rule",
+    cluster_count: int | str | None = "auto",
+) -> dict[str, Any]:
     """Run the full pipeline on raw LINE export text.
 
     Returns a dict with ``app_data`` (for the React UI), ``personas``,
@@ -32,7 +36,7 @@ def analyze_text(text: str, mode: str = "rule") -> dict[str, Any]:
         raise ValueError("找不到任何可分析的使用者訊息，請確認這是 LINE 匯出的 .txt 檔。")
 
     feature_frame = features.extract_features(records)
-    clustered, metadata = clustering.cluster_users(feature_frame)
+    clustered, metadata = clustering.cluster_users(feature_frame, cluster_count=cluster_count)
     if mode == "rule":
         role_table = roles.assign_roles(clustered)
         user_roles = roles.roles_by_user(clustered, role_table)
@@ -56,6 +60,7 @@ def analyze_text(text: str, mode: str = "rule") -> dict[str, Any]:
         metadata,
         summary,
         analysis_mode=mode,
+        cluster_selection=str(cluster_count or "auto"),
         cluster_interpretations=cluster_interpretations,
     )
     return {

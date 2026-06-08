@@ -201,6 +201,7 @@ def build_app_data(
     metadata: dict[str, Any],
     summary: dict[str, Any],
     analysis_mode: str = "rule",
+    cluster_selection: str = "auto",
     cluster_interpretations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Map pipeline outputs into the React front-end's ``APP_DATA`` schema."""
@@ -280,6 +281,7 @@ def build_app_data(
         "scatter": _build_scatter(features, user_roles, id_by_user),
         "clusterMeta": _build_cluster_meta(user_roles, metadata),
         "analysisMode": analysis_mode,
+        "clusterSelection": cluster_selection,
         "clusterInterpretations": cluster_interpretations or [],
         "__embedded": True,
     }
@@ -297,6 +299,7 @@ def _empty_app_data(summary: dict[str, Any]) -> dict[str, Any]:
         "heatmap": [], "scatter": [],
         "clusterMeta": {"best_k": 0, "silhouette": 0.0, "clusters": []},
         "analysisMode": "rule",
+        "clusterSelection": "auto",
         "clusterInterpretations": [],
         "__embedded": True,
     }

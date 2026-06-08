@@ -40,7 +40,7 @@ function Gauge({ value, size = 220 }) {
 }
 
 /* ---------- 上傳 ---------- */
-function UploadView({ onStart, error, analysisMode, setAnalysisMode }) {
+function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCount, setClusterCount }) {
   const D = window.APP_DATA;
   const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
@@ -49,6 +49,19 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode }) {
   const modes = [
     ["rule", "規則角色分析", "使用預先定義角色規則"],
     ["ai_cluster", "AI 分群命名", "先分群，再由 AI 解釋各群角色"],
+  ];
+  const clusterOptions = [
+    ["auto", "自動選擇", "用 silhouette score 選出資料最明顯的分群數"],
+    ["3", "3 群", "較粗略的角色輪廓"],
+    ["4", "4 群", "展示與可解釋性較平衡"],
+    ["5", "5 群", "更細的角色差異"],
+  ];
+  const summaryCards = [
+    analysisMode === "ai_cluster"
+      ? ["3-5", "個分群角色", "先分群，再由 AI 命名"]
+      : ["8", "種人物角色", "從高頻核心到深夜長文"],
+    ["20+", "項行為特徵", "作息、用詞、回覆習慣"],
+    ["1", "份群組健康報告", "誰扛起對話、誰快變幽靈"],
   ];
   return (
     <div style={{ maxWidth: 920, margin: "0 auto", padding: "min(9vh, 90px) clamp(20px, 5vw, 40px) 80px" }}>
@@ -65,6 +78,16 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode }) {
         {modes.map(([id, title, desc]) => (
           <button key={id} className={"mode-option" + (analysisMode === id ? " active" : "")}
             onClick={() => setAnalysisMode(id)} type="button">
+            <span>{title}</span>
+            <small>{desc}</small>
+          </button>
+        ))}
+      </div>
+      <div className="picker-label">分群數量</div>
+      <div className="mode-picker cluster-picker" role="group" aria-label="分群數量">
+        {clusterOptions.map(([id, title, desc]) => (
+          <button key={id} className={"mode-option" + (clusterCount === id ? " active" : "")}
+            onClick={() => setClusterCount(id)} type="button">
             <span>{title}</span>
             <small>{desc}</small>
           </button>
@@ -89,7 +112,7 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, marginTop: 48,
         border: "1px solid var(--line)", background: "var(--line)" }}>
-        {[["8", "種人物角色", "從高頻核心到深夜長文"], ["20+", "項行為特徵", "作息、用詞、回覆習慣"], ["1", "份群組健康報告", "誰扛起對話、誰快變幽靈"]].map(([n, t, d], i) => (
+        {summaryCards.map(([n, t, d], i) => (
           <div key={i} style={{ background: "var(--surface)", padding: "22px 22px" }}>
             <div className="num" style={{ fontSize: 38 }}>{n}</div>
             <div style={{ fontWeight: 600, marginTop: 4 }}>{t}</div>
@@ -127,7 +150,7 @@ function AIClusterInterpretations({ mobile }) {
 
 /* ---------- 載入動畫 ---------- */
 function LoadingView({ onDone }) {
-  const steps = ["解析對話記錄", "抽取每位成員的行為特徵", "分群並尋找最佳分組", "指派人物角色與稱號", "計算群組健康度"];
+  const steps = ["解析對話記錄", "抽取每位成員的行為特徵", "依設定完成分群", "指派人物角色與稱號", "計算群組健康度"];
   const [i, setI] = useState(0);
   useEffect(() => {
     if (i >= steps.length) { const t = setTimeout(onDone, 480); return () => clearTimeout(t); }

@@ -220,6 +220,19 @@ a, button { font-family: inherit; }
   gap: 10px;
   margin-top: 30px;
 }
+.picker-label {
+  font-family: var(--mono);
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  margin-top: 18px;
+  text-transform: uppercase;
+}
+.cluster-picker {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 10px;
+}
 .mode-option {
   border: 1px solid var(--line-2);
   background: var(--surface);
@@ -228,6 +241,9 @@ a, button { font-family: inherit; }
   text-align: left;
   cursor: pointer;
   min-height: 82px;
+}
+.cluster-picker .mode-option {
+  min-height: 96px;
 }
 .mode-option.active {
   border-color: var(--ink);

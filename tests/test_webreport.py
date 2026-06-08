@@ -27,7 +27,7 @@ def test_app_data_top_level_keys():
     app_data, _, _ = _build()
     for key in ("group", "members", "ROLES", "AXES", "FEATURES", "roleDist",
                 "superlatives", "observations", "heatmap", "scatter", "clusterMeta",
-                "analysisMode", "clusterInterpretations"):
+                "analysisMode", "clusterSelection", "clusterInterpretations"):
         assert key in app_data
     assert app_data["__embedded"] is True
 
@@ -36,6 +36,7 @@ def test_app_data_analysis_metadata_defaults():
     app_data, _, _ = _build()
 
     assert app_data["analysisMode"] == "rule"
+    assert app_data["clusterSelection"] == "auto"
     assert app_data["clusterInterpretations"] == []
 
 

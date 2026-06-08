@@ -29,10 +29,14 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB upload cap
 
 
-def _app_data_from_text(text: str, mode: str = "rule") -> dict:
+def _app_data_from_text(
+    text: str,
+    mode: str = "rule",
+    cluster_count: str = "auto",
+) -> dict:
     """Run the pipeline and return APP_DATA flagged for the live (upload) flow."""
 
-    result = pipeline.analyze_text(text, mode=mode)
+    result = pipeline.analyze_text(text, mode=mode, cluster_count=cluster_count)
     app_data = result["app_data"]
     # In the live flow data arrives *after* upload, so keep the upload/re-analyze
     # affordances available (do not auto-skip the upload screen).
@@ -56,9 +60,10 @@ def analyze():
     if uploaded is None or not uploaded.filename:
         return jsonify({"error": "沒有收到檔案，請選擇一份 LINE 匯出的 .txt。"}), 400
     mode = request.form.get("mode", "rule")
+    cluster_count = request.form.get("cluster_count", "auto")
     text = uploaded.read().decode("utf-8-sig", errors="replace")
     try:
-        return jsonify(_app_data_from_text(text, mode=mode))
+        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count))
     except cluster_interpreter.ClusterInterpretationError as error:
         return jsonify({"error": str(error)}), 400
     except ValueError as error:
@@ -73,8 +78,9 @@ def sample():
         abort(404)
     text = SAMPLE_FILE.read_text(encoding="utf-8")
     mode = request.args.get("mode", "rule")
+    cluster_count = request.args.get("cluster_count", "auto")
     try:
-        return jsonify(_app_data_from_text(text, mode=mode))
+        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count))
     except cluster_interpreter.ClusterInterpretationError as error:
         return jsonify({"error": str(error)}), 400
     except ValueError as error:
