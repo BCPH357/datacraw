@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+
 from . import cluster_interpreter, clustering, features, parser, report, roles, webreport
 
 VALID_ANALYSIS_MODES = {"rule", "ai_cluster"}
@@ -69,3 +71,38 @@ def analyze_text(
         "group_health": group_health,
         "summary": summary,
     }
+
+
+def _split_by_participation(
+    feature_frame: pd.DataFrame,
+    min_share_pct: float,
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    """Split users by their share of the group's total messages.
+
+    Users whose ``message_count`` makes up at most ``min_share_pct`` percent of
+    the group total are treated as transient members (joined and left quickly)
+    and excluded from clustering. They are still reported back as a separate
+    list — name, message count, share — so the UI can show who was left out and
+    why, instead of silently dropping them.
+    """
+
+    if feature_frame.empty or min_share_pct <= 0:
+        return feature_frame, []
+
+    total_messages = feature_frame["message_count"].sum()
+    if total_messages <= 0:
+        return feature_frame, []
+
+    threshold = min_share_pct / 100.0
+    share = feature_frame["message_count"] / total_messages
+    excluded_mask = share <= threshold
+
+    excluded = [
+        {
+            "name": str(user),
+            "messageCount": int(feature_frame.loc[user, "message_count"]),
+            "sharePct": round(float(share.loc[user]) * 100, 2),
+        }
+        for user in feature_frame.index[excluded_mask]
+    ]
+    return feature_frame.loc[~excluded_mask], excluded

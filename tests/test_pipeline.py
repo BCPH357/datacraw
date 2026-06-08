@@ -1,8 +1,48 @@
 import json
 
+import pandas as pd
 import pytest
 
 from src import clustering, features, parser, pipeline, report, roles
+
+
+def test_split_by_participation_excludes_low_share_members():
+    feature_frame = pd.DataFrame(
+        {"message_count": [970, 20, 5, 5]},
+        index=["Alice", "Bob", "Carol", "Dave"],
+    )
+
+    included, excluded = pipeline._split_by_participation(feature_frame, min_share_pct=1.0)
+
+    assert list(included.index) == ["Alice", "Bob"]
+    assert excluded == [
+        {"name": "Carol", "messageCount": 5, "sharePct": 0.5},
+        {"name": "Dave", "messageCount": 5, "sharePct": 0.5},
+    ]
+
+
+def test_split_by_participation_keeps_everyone_when_threshold_is_zero():
+    feature_frame = pd.DataFrame(
+        {"message_count": [970, 20, 5, 5]},
+        index=["Alice", "Bob", "Carol", "Dave"],
+    )
+
+    included, excluded = pipeline._split_by_participation(feature_frame, min_share_pct=0)
+
+    assert list(included.index) == ["Alice", "Bob", "Carol", "Dave"]
+    assert excluded == []
+
+
+def test_split_by_participation_treats_share_at_threshold_as_excluded():
+    feature_frame = pd.DataFrame(
+        {"message_count": [970, 20, 5, 5]},
+        index=["Alice", "Bob", "Carol", "Dave"],
+    )
+
+    included, excluded = pipeline._split_by_participation(feature_frame, min_share_pct=2.0)
+
+    assert list(included.index) == ["Alice"]
+    assert [item["name"] for item in excluded] == ["Bob", "Carol", "Dave"]
 
 
 def test_pipeline_outputs_valid_payloads(tmp_path):
