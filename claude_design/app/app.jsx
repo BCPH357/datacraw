@@ -11,6 +11,7 @@ function App() {
   const [drawer, setDrawer] = useState(false);
   const [analysisMode, setAnalysisMode] = useState("rule");
   const [clusterCount, setClusterCount] = useState("auto");
+  const [excludeThreshold, setExcludeThreshold] = useState("1");
   const mainRef = useRef(null);
 
   const toTop = () => { if (mainRef.current) mainRef.current.scrollTop = 0; };
@@ -24,13 +25,14 @@ function App() {
     try {
       let res;
       if (arg === "sample") {
-        const params = new URLSearchParams({ mode: analysisMode, cluster_count: clusterCount });
+        const params = new URLSearchParams({ mode: analysisMode, cluster_count: clusterCount, min_share_pct: excludeThreshold });
         res = await fetch(`/sample?${params.toString()}`);
       } else {
         const form = new FormData();
         form.append("file", arg);
         form.append("mode", analysisMode);
         form.append("cluster_count", clusterCount);
+        form.append("min_share_pct", excludeThreshold);
         res = await fetch("/analyze", { method: "POST", body: form });
       }
       if (!res.ok) {
@@ -56,7 +58,8 @@ function App() {
 
   if (stage === "upload") return <UploadView onStart={analyze} error={error}
     analysisMode={analysisMode} setAnalysisMode={setAnalysisMode}
-    clusterCount={clusterCount} setClusterCount={setClusterCount} />;
+    clusterCount={clusterCount} setClusterCount={setClusterCount}
+    excludeThreshold={excludeThreshold} setExcludeThreshold={setExcludeThreshold} />;
   if (stage === "loading") return <LoadingView onDone={() => {}} />;
 
   const links = [

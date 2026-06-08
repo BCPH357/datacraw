@@ -37,6 +37,13 @@ def test_frontend_assets_include_analysis_mode_ui(client):
     assert "AIClusterInterpretations" in views_js
 
 
+def test_frontend_assets_include_exclude_threshold_state(client):
+    app_js = client.get("/app/app.jsx").get_data(as_text=True)
+
+    assert "excludeThreshold" in app_js
+    assert "min_share_pct" in app_js
+
+
 def test_analyze_returns_app_data(client):
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
     res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},
