@@ -139,6 +139,19 @@ def role_style(role: str) -> dict[str, str]:
     return ROLES.get(role, _DEFAULT_ROLE)
 
 
+def _role_metadata_for(members: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
+    role_metadata = {role: dict(style) for role, style in ROLES.items()}
+    for member in members:
+        role = str(member["role"])
+        if role not in role_metadata:
+            role_metadata[role] = {
+                **_DEFAULT_ROLE,
+                "title": role,
+                "desc": "由分群統計摘要與 AI 命名產生的角色。",
+            }
+    return role_metadata
+
+
 def _fmt_value(feature: str, value: float) -> str:
     fmt = FEATURES.get(feature, {}).get("fmt", "int")
     if fmt == "pct":
@@ -234,6 +247,7 @@ def build_app_data(
     role_dist: dict[str, int] = {}
     for member in members:
         role_dist[member["role"]] = role_dist.get(member["role"], 0) + 1
+    role_metadata = _role_metadata_for(members)
 
     total_messages = int(sum(member["f"].get("message_count", 0) for member in members))
     date_range = summary.get("date_range", {}) or {}
@@ -256,7 +270,7 @@ def build_app_data(
     return {
         "group": group,
         "members": members,
-        "ROLES": ROLES,
+        "ROLES": role_metadata,
         "AXES": AXES,
         "FEATURES": FEATURES,
         "roleDist": role_dist,

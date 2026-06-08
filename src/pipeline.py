@@ -40,6 +40,10 @@ def analyze_text(text: str, mode: str = "rule") -> dict[str, Any]:
     else:
         cluster_summaries = cluster_interpreter.build_cluster_summaries(clustered, feature_frame)
         cluster_interpretations = cluster_interpreter.interpret_clusters_with_openai(cluster_summaries)
+        cluster_interpretations = cluster_interpreter.attach_members_to_interpretations(
+            clustered,
+            cluster_interpretations,
+        )
         user_roles = cluster_interpreter.apply_cluster_interpretations(clustered, cluster_interpretations)
     personas = report.build_personas(user_roles)
     group_health = report.build_group_health(user_roles, metadata)

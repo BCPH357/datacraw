@@ -50,6 +50,32 @@ def test_apply_cluster_interpretations_assigns_cluster_roles():
         assert row["top_features"] == ["訊息數高", "活躍天數高"]
 
 
+def test_attach_members_to_interpretations_maps_cluster_members_locally():
+    _, clustered, _ = _clustered_fixture()
+    cluster_ids = sorted(int(c) for c in clustered["cluster"].unique())
+    interpretations = [
+        {
+            "cluster": cluster_id,
+            "roleName": f"AI 角色 {cluster_id}",
+            "tagline": f"摘要 {cluster_id}",
+            "description": f"解釋 {cluster_id}",
+            "evidence": ["訊息數高"],
+        }
+        for cluster_id in cluster_ids
+    ]
+
+    enriched = cluster_interpreter.attach_members_to_interpretations(clustered, interpretations)
+
+    for item in enriched:
+        expected = [
+            str(user)
+            for user, row in clustered.iterrows()
+            if int(row["cluster"]) == item["cluster"]
+        ]
+        assert item["members"] == expected
+        assert item["roleName"] == f"AI 角色 {item['cluster']}"
+
+
 def test_openai_interpreter_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 

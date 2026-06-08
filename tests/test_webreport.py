@@ -1,4 +1,4 @@
-from src import clustering, features, parser, report, roles, webreport
+from src import clustering, cluster_interpreter, features, parser, report, roles, webreport
 
 
 def _build(analysis_mode="rule", cluster_interpretations=None):
@@ -57,6 +57,44 @@ def test_app_data_includes_cluster_interpretations():
 
     assert app_data["analysisMode"] == "ai_cluster"
     assert app_data["clusterInterpretations"] == interpretations
+
+
+def test_app_data_includes_dynamic_ai_role_metadata():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+    clustered, metadata = clustering.cluster_users(feature_frame)
+    cluster_ids = sorted(int(c) for c in clustered["cluster"].unique())
+    interpretations = [
+        {
+            "cluster": cluster_id,
+            "roleName": f"AI 角色 {cluster_id}",
+            "tagline": f"摘要 {cluster_id}",
+            "description": f"解釋 {cluster_id}",
+            "evidence": ["訊息數高"],
+        }
+        for cluster_id in cluster_ids
+    ]
+    user_roles = cluster_interpreter.apply_cluster_interpretations(clustered, interpretations)
+    group_health = report.build_group_health(user_roles, metadata)
+
+    app_data = webreport.build_app_data(
+        records,
+        feature_frame,
+        clustered,
+        user_roles,
+        group_health,
+        metadata,
+        summary,
+        analysis_mode="ai_cluster",
+        cluster_interpretations=interpretations,
+    )
+
+    for item in interpretations:
+        role_name = item["roleName"]
+        assert role_name in app_data["ROLES"]
+        assert app_data["ROLES"][role_name]["title"] == role_name
+        assert app_data["ROLES"][role_name]["cvar"]
 
 
 def test_members_shape_and_stats():

@@ -99,6 +99,26 @@ def apply_cluster_interpretations(
     return pd.DataFrame(rows).set_index("user")
 
 
+def attach_members_to_interpretations(
+    clustered_features: pd.DataFrame,
+    interpretations: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Add display-only member names after AI interpretation returns."""
+
+    members_by_cluster: dict[int, list[str]] = {}
+    if "cluster" in clustered_features.columns:
+        for cluster_id, rows in clustered_features.groupby("cluster", sort=True):
+            members_by_cluster[int(cluster_id)] = [str(user) for user in rows.index]
+
+    enriched = []
+    for item in interpretations:
+        cluster_id = int(item["cluster"])
+        payload = dict(item)
+        payload["members"] = members_by_cluster.get(cluster_id, [])
+        enriched.append(payload)
+    return enriched
+
+
 def normalize_interpretations(
     payload: dict[str, Any],
     summaries: list[dict[str, Any]],
