@@ -1,7 +1,7 @@
 from src import clustering, features, parser, report, roles, webreport
 
 
-def _build():
+def _build(analysis_mode="rule", cluster_interpretations=None):
     records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
     summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
     feature_frame = features.extract_features(records)
@@ -10,7 +10,15 @@ def _build():
     user_roles = roles.roles_by_user(clustered, role_table)
     group_health = report.build_group_health(user_roles, metadata)
     app_data = webreport.build_app_data(
-        records, feature_frame, clustered, user_roles, group_health, metadata, summary
+        records,
+        feature_frame,
+        clustered,
+        user_roles,
+        group_health,
+        metadata,
+        summary,
+        analysis_mode=analysis_mode,
+        cluster_interpretations=cluster_interpretations,
     )
     return app_data, feature_frame, metadata
 
@@ -18,9 +26,37 @@ def _build():
 def test_app_data_top_level_keys():
     app_data, _, _ = _build()
     for key in ("group", "members", "ROLES", "AXES", "FEATURES", "roleDist",
-                "superlatives", "observations", "heatmap", "scatter", "clusterMeta"):
+                "superlatives", "observations", "heatmap", "scatter", "clusterMeta",
+                "analysisMode", "clusterInterpretations"):
         assert key in app_data
     assert app_data["__embedded"] is True
+
+
+def test_app_data_analysis_metadata_defaults():
+    app_data, _, _ = _build()
+
+    assert app_data["analysisMode"] == "rule"
+    assert app_data["clusterInterpretations"] == []
+
+
+def test_app_data_includes_cluster_interpretations():
+    base, _, _ = _build()
+    interpretations = [
+        {
+            "cluster": c["id"],
+            "roleName": f"AI 角色 {c['id']}",
+            "tagline": f"摘要 {c['id']}",
+            "description": f"解釋 {c['id']}",
+            "evidence": ["訊息數高", "活躍天數高"],
+            "members": [],
+        }
+        for c in base["clusterMeta"]["clusters"]
+    ]
+
+    app_data, _, _ = _build("ai_cluster", interpretations)
+
+    assert app_data["analysisMode"] == "ai_cluster"
+    assert app_data["clusterInterpretations"] == interpretations
 
 
 def test_members_shape_and_stats():
