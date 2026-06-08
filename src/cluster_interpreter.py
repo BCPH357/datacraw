@@ -187,10 +187,26 @@ def _response_schema() -> dict[str, Any]:
     }
 
 
+def _extract_usage(response: Any) -> dict[str, int]:
+    """Read input/output/total token counts off an OpenAI response, if present.
+
+    Token reporting is informational only — a response without a populated
+    ``usage`` (older SDKs, mocked clients, provider quirks) degrades to zeros
+    rather than failing the whole analysis.
+    """
+
+    usage = getattr(response, "usage", None)
+    return {
+        "input": int(getattr(usage, "input_tokens", 0) or 0),
+        "output": int(getattr(usage, "output_tokens", 0) or 0),
+        "total": int(getattr(usage, "total_tokens", 0) or 0),
+    }
+
+
 def interpret_clusters_with_openai(
     summaries: list[dict[str, Any]],
     model: str | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Use OpenAI to name and explain clusters from statistics only."""
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -231,6 +247,7 @@ def interpret_clusters_with_openai(
         raise ClusterInterpretationError(f"OpenAI 分析失敗：{error}") from error
 
     try:
-        return normalize_interpretations(json.loads(response.output_text), summaries)
+        interpretations = normalize_interpretations(json.loads(response.output_text), summaries)
     except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as error:
         raise ClusterInterpretationError(f"AI 回傳格式無法解析：{error}") from error
+    return interpretations, _extract_usage(response)

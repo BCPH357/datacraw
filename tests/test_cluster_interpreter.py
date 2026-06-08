@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from src import clustering, cluster_interpreter, features, parser
@@ -81,6 +83,68 @@ def test_openai_interpreter_requires_api_key(monkeypatch):
 
     with pytest.raises(cluster_interpreter.ClusterInterpretationError, match="OPENAI_API_KEY"):
         cluster_interpreter.interpret_clusters_with_openai([{"cluster": 0, "member_count": 1}])
+
+
+def test_interpret_clusters_with_openai_returns_token_usage(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    class FakeUsage:
+        input_tokens = 120
+        output_tokens = 45
+        total_tokens = 165
+
+    class FakeResponse:
+        output_text = json.dumps({
+            "clusters": [
+                {"cluster": 0, "roleName": "A", "tagline": "B", "description": "C", "evidence": []},
+            ]
+        })
+        usage = FakeUsage()
+
+    class FakeResponses:
+        def create(self, **kwargs):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr("openai.OpenAI", FakeClient)
+
+    interpretations, usage = cluster_interpreter.interpret_clusters_with_openai(
+        [{"cluster": 0, "member_count": 1}]
+    )
+
+    assert interpretations[0]["roleName"] == "A"
+    assert usage == {"input": 120, "output": 45, "total": 165}
+
+
+def test_interpret_clusters_with_openai_handles_missing_usage(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    class FakeResponse:
+        output_text = json.dumps({
+            "clusters": [
+                {"cluster": 0, "roleName": "A", "tagline": "B", "description": "C", "evidence": []},
+            ]
+        })
+        usage = None
+
+    class FakeResponses:
+        def create(self, **kwargs):
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.responses = FakeResponses()
+
+    monkeypatch.setattr("openai.OpenAI", FakeClient)
+
+    _, usage = cluster_interpreter.interpret_clusters_with_openai(
+        [{"cluster": 0, "member_count": 1}]
+    )
+
+    assert usage == {"input": 0, "output": 0, "total": 0}
 
 
 def test_normalize_interpretations_requires_all_clusters():
