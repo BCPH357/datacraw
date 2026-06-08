@@ -1,6 +1,8 @@
 import json
 
-from src import clustering, features, parser, report, roles
+import pytest
+
+from src import clustering, features, parser, pipeline, report, roles
 
 
 def test_pipeline_outputs_valid_payloads(tmp_path):
@@ -18,4 +20,19 @@ def test_pipeline_outputs_valid_payloads(tmp_path):
     assert 0 <= health["group_health_score"] <= 100
     assert sum(health["role_distribution"].values()) == len(feature_frame)
     assert json.loads((tmp_path / "personas.json").read_text(encoding="utf-8"))
+
+
+def test_analyze_text_rule_mode_has_analysis_metadata():
+    text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
+    result = pipeline.analyze_text(text, mode="rule")
+
+    assert result["app_data"]["analysisMode"] == "rule"
+    assert result["app_data"]["clusterInterpretations"] == []
+
+
+def test_analyze_text_rejects_invalid_mode():
+    text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
+
+    with pytest.raises(ValueError, match="analysis mode"):
+        pipeline.analyze_text(text, mode="bad")
 

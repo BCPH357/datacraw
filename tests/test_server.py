@@ -35,6 +35,31 @@ def test_analyze_returns_app_data(client):
     assert data["group"]["userCount"] == len(data["members"])
 
 
+def test_analyze_accepts_rule_mode(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "rule", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert res.status_code == 200
+    assert res.get_json()["analysisMode"] == "rule"
+
+
+def test_analyze_ai_mode_without_key_returns_error(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "ai_cluster", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    assert res.status_code == 400
+    assert "OPENAI_API_KEY" in res.get_json()["error"]
+
+
 def test_analyze_rejects_garbage(client):
     res = client.post("/analyze", data={"file": (io.BytesIO(b"not a chat"), "x.txt")},
                       content_type="multipart/form-data")

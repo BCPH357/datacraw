@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src import pipeline, webreport
+from src import cluster_interpreter, pipeline, webreport
 
 DESIGN_DIR = ROOT / "claude_design"
 ASSETS_DIR = DESIGN_DIR / "app"
@@ -27,10 +27,10 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB upload cap
 
 
-def _app_data_from_text(text: str) -> dict:
+def _app_data_from_text(text: str, mode: str = "rule") -> dict:
     """Run the pipeline and return APP_DATA flagged for the live (upload) flow."""
 
-    result = pipeline.analyze_text(text)
+    result = pipeline.analyze_text(text, mode=mode)
     app_data = result["app_data"]
     # In the live flow data arrives *after* upload, so keep the upload/re-analyze
     # affordances available (do not auto-skip the upload screen).
@@ -53,9 +53,12 @@ def analyze():
     uploaded = request.files.get("file")
     if uploaded is None or not uploaded.filename:
         return jsonify({"error": "沒有收到檔案，請選擇一份 LINE 匯出的 .txt。"}), 400
+    mode = request.form.get("mode", "rule")
     text = uploaded.read().decode("utf-8-sig", errors="replace")
     try:
-        return jsonify(_app_data_from_text(text))
+        return jsonify(_app_data_from_text(text, mode=mode))
+    except cluster_interpreter.ClusterInterpretationError as error:
+        return jsonify({"error": str(error)}), 400
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
     except Exception as error:  # noqa: BLE001 - surface a friendly message
@@ -67,8 +70,11 @@ def sample():
     if not SAMPLE_FILE.exists():
         abort(404)
     text = SAMPLE_FILE.read_text(encoding="utf-8")
+    mode = request.args.get("mode", "rule")
     try:
-        return jsonify(_app_data_from_text(text))
+        return jsonify(_app_data_from_text(text, mode=mode))
+    except cluster_interpreter.ClusterInterpretationError as error:
+        return jsonify({"error": str(error)}), 400
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
 
