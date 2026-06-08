@@ -9,6 +9,7 @@ function App() {
   const [memberId, setMemberId] = useState(null);
   const [error, setError] = useState(null);
   const [drawer, setDrawer] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState("rule");
   const mainRef = useRef(null);
 
   const toTop = () => { if (mainRef.current) mainRef.current.scrollTop = 0; };
@@ -22,10 +23,11 @@ function App() {
     try {
       let res;
       if (arg === "sample") {
-        res = await fetch("/sample");
+        res = await fetch(`/sample?mode=${encodeURIComponent(analysisMode)}`);
       } else {
         const form = new FormData();
         form.append("file", arg);
+        form.append("mode", analysisMode);
         res = await fetch("/analyze", { method: "POST", body: form });
       }
       if (!res.ok) {
@@ -49,7 +51,7 @@ function App() {
     }
   };
 
-  if (stage === "upload") return <UploadView onStart={analyze} error={error} />;
+  if (stage === "upload") return <UploadView onStart={analyze} error={error} analysisMode={analysisMode} setAnalysisMode={setAnalysisMode} />;
   if (stage === "loading") return <LoadingView onDone={() => {}} />;
 
   const links = [

@@ -40,12 +40,16 @@ function Gauge({ value, size = 220 }) {
 }
 
 /* ---------- 上傳 ---------- */
-function UploadView({ onStart, error }) {
+function UploadView({ onStart, error, analysisMode, setAnalysisMode }) {
   const D = window.APP_DATA;
   const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
   const pick = () => inputRef.current && inputRef.current.click();
   const handleFiles = (files) => { const f = files && files[0]; if (f) onStart(f); };
+  const modes = [
+    ["rule", "規則角色分析", "使用預先定義角色規則"],
+    ["ai_cluster", "AI 分群命名", "先分群，再由 AI 解釋各群角色"],
+  ];
   return (
     <div style={{ maxWidth: 920, margin: "0 auto", padding: "min(9vh, 90px) clamp(20px, 5vw, 40px) 80px" }}>
       <div className="kicker" style={{ marginBottom: 22 }}>datacaw — LINE 群組人物誌報告</div>
@@ -56,6 +60,16 @@ function UploadView({ onStart, error }) {
         上傳一份 LINE 對話記錄，我們會解析每個人的發言節奏、作息與互動方式，
         替群組裡的每個人寫一張專屬的「人物誌角色卡」。
       </p>
+
+      <div className="mode-picker" role="group" aria-label="分析模式">
+        {modes.map(([id, title, desc]) => (
+          <button key={id} className={"mode-option" + (analysisMode === id ? " active" : "")}
+            onClick={() => setAnalysisMode(id)} type="button">
+            <span>{title}</span>
+            <small>{desc}</small>
+          </button>
+        ))}
+      </div>
 
       <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
@@ -80,6 +94,30 @@ function UploadView({ onStart, error }) {
             <div className="num" style={{ fontSize: 38 }}>{n}</div>
             <div style={{ fontWeight: 600, marginTop: 4 }}>{t}</div>
             <div style={{ color: "var(--ink-3)", fontSize: 13, marginTop: 3 }}>{d}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AIClusterInterpretations({ mobile }) {
+  const D = window.APP_DATA;
+  if (D.analysisMode !== "ai_cluster" || !D.clusterInterpretations || !D.clusterInterpretations.length) return null;
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <SectionHead kicker="AI CLUSTER INTERPRETATION" title="AI 分群解釋" note="AI 只根據分群統計摘要命名，不讀取原始聊天內容。" />
+      <div className="ai-cluster-grid">
+        {D.clusterInterpretations.map((item) => (
+          <div className="ai-cluster-card" key={item.cluster}>
+            <div className="ai-cluster-meta">Cluster {item.cluster}</div>
+            <h3>{item.roleName}</h3>
+            <p className="ai-cluster-tagline">{item.tagline}</p>
+            <p className="ai-cluster-description">{item.description}</p>
+            <div className="ai-evidence">
+              {(item.evidence || []).map((e) => <span key={e}>{e}</span>)}
+            </div>
+            <div className="ai-members">{(item.members || []).join("、")}</div>
           </div>
         ))}
       </div>
@@ -214,6 +252,8 @@ function OverviewView({ mobile, onOpenMember, goCharts }) {
         </div>
       </div>
 
+      <AIClusterInterpretations mobile={mobile} />
+
       {/* 群組之最 */}
       <SectionHead kicker="HALL OF FAME" title="群組之最" note="每個群組都有幾個無法取代的角色。" />
       <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, 1fr)", gap: 1, background: "var(--line)",
@@ -277,4 +317,4 @@ function OverviewView({ mobile, onOpenMember, goCharts }) {
   );
 }
 
-Object.assign(window, { SectionHead, Gauge, UploadView, LoadingView, OverviewView });
+Object.assign(window, { SectionHead, Gauge, UploadView, LoadingView, OverviewView, AIClusterInterpretations });

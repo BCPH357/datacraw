@@ -24,6 +24,16 @@ def test_index_serves_upload_page(client):
     assert 'src="app/app.jsx"' in body  # boots the React app
 
 
+def test_frontend_assets_include_analysis_mode_ui(client):
+    app_js = client.get("/app/app.jsx").get_data(as_text=True)
+    views_js = client.get("/app/views.jsx").get_data(as_text=True)
+
+    assert "analysisMode" in app_js
+    assert "規則角色分析" in views_js
+    assert "AI 分群命名" in views_js
+    assert "AIClusterInterpretations" in views_js
+
+
 def test_analyze_returns_app_data(client):
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
     res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},
