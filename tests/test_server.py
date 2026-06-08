@@ -74,6 +74,34 @@ def test_analyze_accepts_requested_cluster_count(client):
     assert data["clusterSelection"] == "4"
 
 
+def test_analyze_accepts_min_share_pct(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "rule", "min_share_pct": "15", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    data = res.get_json()
+    assert res.status_code == 200
+    assert data["excludeThresholdPct"] == 15
+    assert data["excludedMembers"]
+
+
+def test_analyze_treats_invalid_min_share_pct_as_no_filter(client):
+    raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
+    res = client.post(
+        "/analyze",
+        data={"mode": "rule", "min_share_pct": "not-a-number", "file": (io.BytesIO(raw), "chat.txt")},
+        content_type="multipart/form-data",
+    )
+
+    data = res.get_json()
+    assert res.status_code == 200
+    assert data["excludeThresholdPct"] == 0
+    assert data["excludedMembers"] == []
+
+
 def test_analyze_ai_mode_without_key_returns_error(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()

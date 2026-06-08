@@ -29,14 +29,30 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB upload cap
 
 
+def _parse_min_share_pct(raw: str | None) -> float:
+    """Parse the user-supplied exclusion threshold.
+
+    Unparsable or non-positive input means "no filtering" — the threshold is a
+    convenience knob, not something that should ever turn a bad value into a
+    confusing failure.
+    """
+
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+    return value if value > 0 else 0.0
+
+
 def _app_data_from_text(
     text: str,
     mode: str = "rule",
     cluster_count: str = "auto",
+    min_share_pct: float = 1.0,
 ) -> dict:
     """Run the pipeline and return APP_DATA flagged for the live (upload) flow."""
 
-    result = pipeline.analyze_text(text, mode=mode, cluster_count=cluster_count)
+    result = pipeline.analyze_text(text, mode=mode, cluster_count=cluster_count, min_share_pct=min_share_pct)
     app_data = result["app_data"]
     # In the live flow data arrives *after* upload, so keep the upload/re-analyze
     # affordances available (do not auto-skip the upload screen).
@@ -61,9 +77,10 @@ def analyze():
         return jsonify({"error": "沒有收到檔案，請選擇一份 LINE 匯出的 .txt。"}), 400
     mode = request.form.get("mode", "rule")
     cluster_count = request.form.get("cluster_count", "auto")
+    min_share_pct = _parse_min_share_pct(request.form.get("min_share_pct", "1"))
     text = uploaded.read().decode("utf-8-sig", errors="replace")
     try:
-        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count))
+        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count, min_share_pct=min_share_pct))
     except cluster_interpreter.ClusterInterpretationError as error:
         return jsonify({"error": str(error)}), 400
     except ValueError as error:
@@ -79,8 +96,9 @@ def sample():
     text = SAMPLE_FILE.read_text(encoding="utf-8")
     mode = request.args.get("mode", "rule")
     cluster_count = request.args.get("cluster_count", "auto")
+    min_share_pct = _parse_min_share_pct(request.args.get("min_share_pct", "1"))
     try:
-        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count))
+        return jsonify(_app_data_from_text(text, mode=mode, cluster_count=cluster_count, min_share_pct=min_share_pct))
     except cluster_interpreter.ClusterInterpretationError as error:
         return jsonify({"error": str(error)}), 400
     except ValueError as error:
