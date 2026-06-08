@@ -44,6 +44,13 @@ def test_frontend_assets_include_exclude_threshold_state(client):
     assert "min_share_pct" in app_js
 
 
+def test_frontend_assets_include_threshold_input(client):
+    views_js = client.get("/app/views.jsx").get_data(as_text=True)
+
+    assert "excludeThreshold" in views_js
+    assert "排除低度參與門檻" in views_js
+
+
 def test_analyze_returns_app_data(client):
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
     res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},

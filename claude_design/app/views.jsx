@@ -40,7 +40,7 @@ function Gauge({ value, size = 220 }) {
 }
 
 /* ---------- 上傳 ---------- */
-function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCount, setClusterCount }) {
+function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCount, setClusterCount, excludeThreshold, setExcludeThreshold }) {
   const D = window.APP_DATA;
   const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
@@ -92,6 +92,12 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCoun
             <small>{desc}</small>
           </button>
         ))}
+      </div>
+      <div className="picker-label">排除低度參與門檻</div>
+      <div className="threshold-row">
+        <input type="number" className="threshold-input" min="0" step="0.5"
+          value={excludeThreshold} onChange={(e) => setExcludeThreshold(e.target.value)} />
+        <span className="threshold-note">% 以下的成員不納入分群計算（設為 0 表示不過濾）。用來排除「短暫加入又退出」的成員，避免他們扭曲分群結果。</span>
       </div>
 
       <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
