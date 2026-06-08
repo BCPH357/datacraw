@@ -224,6 +224,15 @@ def build_app_data(
         )
         axis_percentiles[axis] = _percentile_100(pd.Series(combined, index=users))
 
+    # Per-feature percentile ranks, used to fall back to a valid "top features"
+    # list when the stored top_features aren't real feature keys (e.g. AI mode
+    # stores natural-language evidence strings there instead).
+    feature_columns = [key for key in FEATURE_KEYS if key in user_roles.columns]
+    feature_percentiles = pd.DataFrame(
+        {key: _percentile_100(user_roles[key]) for key in feature_columns},
+        index=users,
+    )
+
     members = []
     for user in users:
         row = user_roles.loc[user]
@@ -234,7 +243,13 @@ def build_app_data(
             if key in user_roles.columns
         }
         stats = {axis: int(axis_percentiles[axis].loc[user]) for axis in AXES}
-        top = [str(item) for item in list(row.get("top_features", []))][:3]
+        top = [item for item in (str(value) for value in list(row.get("top_features", []))) if item in FEATURE_KEYS][:3]
+        if len(top) < 3 and feature_columns:
+            for key in feature_percentiles.loc[user].sort_values(ascending=False).index:
+                if key not in top:
+                    top.append(key)
+                if len(top) == 3:
+                    break
         ai_tagline = str(row.get("tagline") or "").strip()
         members.append(
             {

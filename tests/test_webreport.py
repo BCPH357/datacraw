@@ -167,6 +167,47 @@ def test_app_data_members_use_ai_cluster_tagline():
         assert member["tagline"] != "群組裡的一份子。"
 
 
+def test_app_data_members_top_features_are_valid_feature_keys_in_ai_mode():
+    """AI mode stores natural-language evidence text in top_features; the
+    member detail page indexes FEATURES/f by these values, so they must be
+    real feature keys or the page crashes with a blank render."""
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+    clustered, metadata = clustering.cluster_users(feature_frame)
+    cluster_ids = sorted(int(c) for c in clustered["cluster"].unique())
+    interpretations = [
+        {
+            "cluster": cluster_id,
+            "roleName": f"AI 角色 {cluster_id}",
+            "tagline": f"專屬評語 {cluster_id}",
+            "description": f"解釋 {cluster_id}",
+            "evidence": ["訊息數高", "活躍天數高"],
+        }
+        for cluster_id in cluster_ids
+    ]
+    user_roles = cluster_interpreter.apply_cluster_interpretations(clustered, interpretations)
+    group_health = report.build_group_health(user_roles, metadata)
+
+    app_data = webreport.build_app_data(
+        records,
+        feature_frame,
+        clustered,
+        user_roles,
+        group_health,
+        metadata,
+        summary,
+        analysis_mode="ai_cluster",
+        cluster_interpretations=interpretations,
+    )
+
+    for member in app_data["members"]:
+        assert len(member["top"]) == 3
+        for key in member["top"]:
+            assert key in webreport.FEATURE_KEYS
+            assert key in member["f"]
+
+
 def test_members_shape_and_stats():
     app_data, feature_frame, _ = _build()
     members = app_data["members"]
