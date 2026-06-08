@@ -1,3 +1,5 @@
+import pytest
+
 from src import clustering, cluster_interpreter, features, parser
 
 
@@ -46,3 +48,28 @@ def test_apply_cluster_interpretations_assigns_cluster_roles():
         assert row["role_name"] == f"AI 角色 {int(row['cluster'])}"
         assert row["description"] == f"解釋 {int(row['cluster'])}"
         assert row["top_features"] == ["訊息數高", "活躍天數高"]
+
+
+def test_openai_interpreter_requires_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(cluster_interpreter.ClusterInterpretationError, match="OPENAI_API_KEY"):
+        cluster_interpreter.interpret_clusters_with_openai([{"cluster": 0, "member_count": 1}])
+
+
+def test_normalize_interpretations_requires_all_clusters():
+    summaries = [{"cluster": 0, "member_count": 1}, {"cluster": 1, "member_count": 1}]
+    payload = {
+        "clusters": [
+            {
+                "cluster": 0,
+                "roleName": "A",
+                "tagline": "B",
+                "description": "C",
+                "evidence": ["D"],
+            }
+        ]
+    }
+
+    with pytest.raises(cluster_interpreter.ClusterInterpretationError, match="缺少 cluster"):
+        cluster_interpreter.normalize_interpretations(payload, summaries)

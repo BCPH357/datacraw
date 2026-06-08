@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 SUMMARY_FEATURE_LIMIT = 4
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+
+
+class ClusterInterpretationError(RuntimeError):
+    """Raised when AI cluster interpretation cannot complete safely."""
 
 
 def _numeric(frame: pd.DataFrame) -> pd.DataFrame:
@@ -90,3 +97,120 @@ def apply_cluster_interpretations(
         )
         rows.append(payload)
     return pd.DataFrame(rows).set_index("user")
+
+
+def normalize_interpretations(
+    payload: dict[str, Any],
+    summaries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Validate and normalize structured AI output."""
+
+    expected = {int(summary["cluster"]) for summary in summaries}
+    clusters = payload.get("clusters")
+    if not isinstance(clusters, list):
+        raise ClusterInterpretationError("AI 回傳格式缺少 clusters。")
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for item in clusters:
+        try:
+            cluster_id = int(item["cluster"])
+            role_name = str(item["roleName"])
+            tagline = str(item["tagline"])
+            description = str(item["description"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ClusterInterpretationError(f"AI 回傳 cluster 欄位不完整：{error}") from error
+
+        evidence = item.get("evidence") or []
+        if not isinstance(evidence, list):
+            raise ClusterInterpretationError("AI 回傳 evidence 必須是陣列。")
+
+        seen.add(cluster_id)
+        normalized.append(
+            {
+                "cluster": cluster_id,
+                "roleName": role_name,
+                "tagline": tagline,
+                "description": description,
+                "evidence": [str(value) for value in evidence][:5],
+            }
+        )
+
+    missing = expected - seen
+    if missing:
+        raise ClusterInterpretationError(f"AI 回傳缺少 cluster: {sorted(missing)}")
+    return sorted(normalized, key=lambda item: item["cluster"])
+
+
+def _response_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "clusters": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "cluster": {"type": "integer"},
+                        "roleName": {"type": "string"},
+                        "tagline": {"type": "string"},
+                        "description": {"type": "string"},
+                        "evidence": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["cluster", "roleName", "tagline", "description", "evidence"],
+                },
+            }
+        },
+        "required": ["clusters"],
+    }
+
+
+def interpret_clusters_with_openai(
+    summaries: list[dict[str, Any]],
+    model: str | None = None,
+) -> list[dict[str, Any]]:
+    """Use OpenAI to name and explain clusters from statistics only."""
+
+    if not os.getenv("OPENAI_API_KEY"):
+        raise ClusterInterpretationError("AI 分析需要後端設定 OPENAI_API_KEY。")
+
+    try:
+        from openai import OpenAI
+    except ImportError as error:
+        raise ClusterInterpretationError("AI 分析需要安裝 openai 套件。") from error
+
+    client = OpenAI()
+    selected_model = model or os.getenv("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
+    prompt = {
+        "instruction": "根據分群統計摘要，為每個 cluster 產生繁體中文角色名稱與解釋。不要要求或推測原始聊天內容。",
+        "clusters": summaries,
+    }
+
+    try:
+        response = client.responses.create(
+            model=selected_model,
+            input=[
+                {
+                    "role": "system",
+                    "content": "你是資料探勘報告助教，只根據統計摘要解釋分群。請輸出 JSON。",
+                },
+                {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "cluster_interpretations",
+                    "strict": True,
+                    "schema": _response_schema(),
+                }
+            },
+        )
+    except Exception as error:  # noqa: BLE001 - normalize provider errors for UI
+        raise ClusterInterpretationError(f"OpenAI 分析失敗：{error}") from error
+
+    try:
+        return normalize_interpretations(json.loads(response.output_text), summaries)
+    except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as error:
+        raise ClusterInterpretationError(f"AI 回傳格式無法解析：{error}") from error

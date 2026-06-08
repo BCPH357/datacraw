@@ -1,5 +1,8 @@
 data/raw/
 outputs/
+.env
+.env.*
+!.env.example
 *.txt
 !data/fixtures/*.txt
 !tests/fixtures/*.txt
