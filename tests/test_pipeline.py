@@ -103,3 +103,46 @@ def test_analyze_text_rejects_invalid_mode():
     with pytest.raises(ValueError, match="analysis mode"):
         pipeline.analyze_text(text, mode="bad")
 
+
+def test_analyze_text_excludes_low_share_members():
+    text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
+
+    result = pipeline.analyze_text(text, mode="rule", min_share_pct=15)
+
+    app_data = result["app_data"]
+    excluded_names = {item["name"] for item in app_data["excludedMembers"]}
+    member_names = {member["name"] for member in app_data["members"]}
+    assert excluded_names
+    assert excluded_names.isdisjoint(member_names)
+    assert app_data["excludeThresholdPct"] == 15
+
+
+def test_analyze_text_raises_friendly_error_when_threshold_too_high():
+    text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
+
+    with pytest.raises(ValueError, match="排除門檻過高"):
+        pipeline.analyze_text(text, mode="rule", min_share_pct=25)
+
+
+def test_analyze_text_ai_cluster_mode_carries_token_usage(monkeypatch):
+    text = open("tests/fixtures/sample_chat.txt", encoding="utf-8").read()
+
+    def fake_interpret(summaries, model=None):
+        interpretations = [
+            {
+                "cluster": summary["cluster"],
+                "roleName": f"AI 角色 {summary['cluster']}",
+                "tagline": "t",
+                "description": "d",
+                "evidence": [],
+            }
+            for summary in summaries
+        ]
+        return interpretations, {"input": 10, "output": 5, "total": 15}
+
+    monkeypatch.setattr(pipeline.cluster_interpreter, "interpret_clusters_with_openai", fake_interpret)
+
+    result = pipeline.analyze_text(text, mode="ai_cluster")
+
+    assert result["app_data"]["tokenUsage"] == {"input": 10, "output": 5, "total": 15}
+

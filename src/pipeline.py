@@ -20,6 +20,7 @@ def analyze_text(
     text: str,
     mode: str = "rule",
     cluster_count: int | str | None = "auto",
+    min_share_pct: float = 1.0,
 ) -> dict[str, Any]:
     """Run the full pipeline on raw LINE export text.
 
@@ -38,14 +39,19 @@ def analyze_text(
         raise ValueError("找不到任何可分析的使用者訊息，請確認這是 LINE 匯出的 .txt 檔。")
 
     feature_frame = features.extract_features(records)
-    clustered, metadata = clustering.cluster_users(feature_frame, cluster_count=cluster_count)
+    included_features, excluded_members = _split_by_participation(feature_frame, min_share_pct)
+    if excluded_members and len(included_features) < 2:
+        raise ValueError("排除門檻過高，剩餘可分析成員不足，請調低門檻。")
+
+    clustered, metadata = clustering.cluster_users(included_features, cluster_count=cluster_count)
+    token_usage: dict[str, int] | None = None
     if mode == "rule":
         role_table = roles.assign_roles(clustered)
         user_roles = roles.roles_by_user(clustered, role_table)
         cluster_interpretations: list[dict[str, Any]] = []
     else:
-        cluster_summaries = cluster_interpreter.build_cluster_summaries(clustered, feature_frame)
-        cluster_interpretations = cluster_interpreter.interpret_clusters_with_openai(cluster_summaries)
+        cluster_summaries = cluster_interpreter.build_cluster_summaries(clustered, included_features)
+        cluster_interpretations, token_usage = cluster_interpreter.interpret_clusters_with_openai(cluster_summaries)
         cluster_interpretations = cluster_interpreter.attach_members_to_interpretations(
             clustered,
             cluster_interpretations,
@@ -55,7 +61,7 @@ def analyze_text(
     group_health = report.build_group_health(user_roles, metadata)
     app_data = webreport.build_app_data(
         records,
-        feature_frame,
+        included_features,
         clustered,
         user_roles,
         group_health,
@@ -64,6 +70,9 @@ def analyze_text(
         analysis_mode=mode,
         cluster_selection=str(cluster_count or "auto"),
         cluster_interpretations=cluster_interpretations,
+        excluded_members=excluded_members,
+        token_usage=token_usage,
+        exclude_threshold_pct=min_share_pct,
     )
     return {
         "app_data": app_data,
