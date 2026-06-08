@@ -235,13 +235,14 @@ def build_app_data(
         }
         stats = {axis: int(axis_percentiles[axis].loc[user]) for axis in AXES}
         top = [str(item) for item in list(row.get("top_features", []))][:3]
+        ai_tagline = str(row.get("tagline") or "").strip()
         members.append(
             {
                 "id": id_by_user[user],
                 "name": str(user),
                 "role": role,
                 "cluster": int(row["cluster"]) if "cluster" in user_roles.columns else 0,
-                "tagline": TAGLINE_TEMPLATES.get(role, "群組裡的一份子。"),
+                "tagline": ai_tagline or TAGLINE_TEMPLATES.get(role, "群組裡的一份子。"),
                 "stats": stats,
                 "top": top,
                 "f": feature_values,

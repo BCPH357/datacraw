@@ -130,6 +130,43 @@ def test_app_data_includes_dynamic_ai_role_metadata():
         assert app_data["ROLES"][role_name]["cvar"]
 
 
+def test_app_data_members_use_ai_cluster_tagline():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+    clustered, metadata = clustering.cluster_users(feature_frame)
+    cluster_ids = sorted(int(c) for c in clustered["cluster"].unique())
+    interpretations = [
+        {
+            "cluster": cluster_id,
+            "roleName": f"AI 角色 {cluster_id}",
+            "tagline": f"專屬評語 {cluster_id}",
+            "description": f"解釋 {cluster_id}",
+            "evidence": ["訊息數高"],
+        }
+        for cluster_id in cluster_ids
+    ]
+    user_roles = cluster_interpreter.apply_cluster_interpretations(clustered, interpretations)
+    group_health = report.build_group_health(user_roles, metadata)
+
+    app_data = webreport.build_app_data(
+        records,
+        feature_frame,
+        clustered,
+        user_roles,
+        group_health,
+        metadata,
+        summary,
+        analysis_mode="ai_cluster",
+        cluster_interpretations=interpretations,
+    )
+
+    tagline_by_cluster = {item["cluster"]: item["tagline"] for item in interpretations}
+    for member in app_data["members"]:
+        assert member["tagline"] == tagline_by_cluster[member["cluster"]]
+        assert member["tagline"] != "群組裡的一份子。"
+
+
 def test_members_shape_and_stats():
     app_data, feature_frame, _ = _build()
     members = app_data["members"]
