@@ -203,6 +203,9 @@ def build_app_data(
     analysis_mode: str = "rule",
     cluster_selection: str = "auto",
     cluster_interpretations: list[dict[str, Any]] | None = None,
+    excluded_members: list[dict[str, Any]] | None = None,
+    token_usage: dict[str, int] | None = None,
+    exclude_threshold_pct: float = 1.0,
 ) -> dict[str, Any]:
     """Map pipeline outputs into the React front-end's ``APP_DATA`` schema."""
 
@@ -283,6 +286,9 @@ def build_app_data(
         "analysisMode": analysis_mode,
         "clusterSelection": cluster_selection,
         "clusterInterpretations": cluster_interpretations or [],
+        "excludedMembers": excluded_members or [],
+        "excludeThresholdPct": float(exclude_threshold_pct),
+        "tokenUsage": token_usage,
         "__embedded": True,
     }
 
@@ -301,6 +307,9 @@ def _empty_app_data(summary: dict[str, Any]) -> dict[str, Any]:
         "analysisMode": "rule",
         "clusterSelection": "auto",
         "clusterInterpretations": [],
+        "excludedMembers": [],
+        "excludeThresholdPct": 1.0,
+        "tokenUsage": None,
         "__embedded": True,
     }
 

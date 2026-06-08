@@ -40,6 +40,38 @@ def test_app_data_analysis_metadata_defaults():
     assert app_data["clusterInterpretations"] == []
 
 
+def test_app_data_excluded_members_and_token_usage_default_to_empty():
+    app_data, _, _ = _build()
+
+    assert app_data["excludedMembers"] == []
+    assert app_data["excludeThresholdPct"] == 1.0
+    assert app_data["tokenUsage"] is None
+
+
+def test_app_data_carries_excluded_members_and_token_usage_when_provided():
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+    clustered, metadata = clustering.cluster_users(feature_frame)
+    role_table = roles.assign_roles(clustered)
+    user_roles = roles.roles_by_user(clustered, role_table)
+    group_health = report.build_group_health(user_roles, metadata)
+
+    excluded = [{"name": "小明", "messageCount": 4, "sharePct": 0.4}]
+    usage = {"input": 100, "output": 50, "total": 150}
+
+    app_data = webreport.build_app_data(
+        records, feature_frame, clustered, user_roles, group_health, metadata, summary,
+        excluded_members=excluded,
+        token_usage=usage,
+        exclude_threshold_pct=2.5,
+    )
+
+    assert app_data["excludedMembers"] == excluded
+    assert app_data["excludeThresholdPct"] == 2.5
+    assert app_data["tokenUsage"] == usage
+
+
 def test_app_data_includes_cluster_interpretations():
     base, _, _ = _build()
     interpretations = [
