@@ -141,14 +141,23 @@ def role_style(role: str) -> dict[str, str]:
 
 def _role_metadata_for(members: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
     role_metadata = {role: dict(style) for role, style in ROLES.items()}
+    palette = [(style["cvar"], style["soft"]) for style in ROLES.values()]
+
+    unknown_roles: list[str] = []
     for member in members:
         role = str(member["role"])
-        if role not in role_metadata:
-            role_metadata[role] = {
-                **_DEFAULT_ROLE,
-                "title": role,
-                "desc": "由分群統計摘要與 AI 命名產生的角色。",
-            }
+        if role not in role_metadata and role not in unknown_roles:
+            unknown_roles.append(role)
+
+    for index, role in enumerate(unknown_roles):
+        cvar, soft = palette[index % len(palette)]
+        role_metadata[role] = {
+            **_DEFAULT_ROLE,
+            "cvar": cvar,
+            "soft": soft,
+            "title": role,
+            "desc": "由分群統計摘要與 AI 命名產生的角色。",
+        }
     return role_metadata
 
 

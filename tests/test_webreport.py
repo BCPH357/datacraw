@@ -130,6 +130,59 @@ def test_app_data_includes_dynamic_ai_role_metadata():
         assert app_data["ROLES"][role_name]["cvar"]
 
 
+def test_app_data_assigns_distinct_colors_to_ai_roles_by_index():
+    """AI-generated role names previously all fell back to the same default
+    cvar/soft pair, making every slice of the role-distribution donut look
+    identical. Each distinct AI role name should now get its own color,
+    cycled from the same palette used by the predefined ROLES."""
+    records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
+    feature_frame = features.extract_features(records)
+    clustered, metadata = clustering.cluster_users(feature_frame)
+    cluster_ids = sorted(int(c) for c in clustered["cluster"].unique())
+    interpretations = [
+        {
+            "cluster": cluster_id,
+            "roleName": f"AI 角色 {cluster_id}",
+            "tagline": f"摘要 {cluster_id}",
+            "description": f"解釋 {cluster_id}",
+            "evidence": ["訊息數高"],
+        }
+        for cluster_id in cluster_ids
+    ]
+    user_roles = cluster_interpreter.apply_cluster_interpretations(clustered, interpretations)
+    group_health = report.build_group_health(user_roles, metadata)
+
+    app_data = webreport.build_app_data(
+        records,
+        feature_frame,
+        clustered,
+        user_roles,
+        group_health,
+        metadata,
+        summary,
+        analysis_mode="ai_cluster",
+        cluster_interpretations=interpretations,
+    )
+
+    role_names = [item["roleName"] for item in interpretations]
+    palette = [(style["cvar"], style["soft"]) for style in webreport.ROLES.values()]
+
+    # Colors are assigned by first-appearance order among members (not cluster id order).
+    seen_order: list[str] = []
+    for member in app_data["members"]:
+        if member["role"] not in seen_order:
+            seen_order.append(member["role"])
+
+    for index, role_name in enumerate(seen_order):
+        expected_cvar, expected_soft = palette[index % len(palette)]
+        assert app_data["ROLES"][role_name]["cvar"] == expected_cvar
+        assert app_data["ROLES"][role_name]["soft"] == expected_soft
+
+    if len(role_names) > 1:
+        assert len({app_data["ROLES"][r]["cvar"] for r in role_names}) == min(len(role_names), len(palette))
+
+
 def test_app_data_members_use_ai_cluster_tagline():
     records = parser.to_dataframe(parser.parse_file("tests/fixtures/sample_chat.txt"))
     summary = parser.summarize(parser.parse_file("tests/fixtures/sample_chat.txt"))
