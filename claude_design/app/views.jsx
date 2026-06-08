@@ -133,9 +133,19 @@ function UploadView({ onStart, error, analysisMode, setAnalysisMode, clusterCoun
 function AIClusterInterpretations({ mobile }) {
   const D = window.APP_DATA;
   if (D.analysisMode !== "ai_cluster" || !D.clusterInterpretations || !D.clusterInterpretations.length) return null;
+  const usage = D.tokenUsage;
   return (
     <div style={{ marginBottom: 36 }}>
-      <SectionHead kicker="AI CLUSTER INTERPRETATION" title="AI 分群解釋" note="AI 只根據分群統計摘要命名，不讀取原始聊天內容。" />
+      <SectionHead kicker="AI CLUSTER INTERPRETATION" title="AI 分群解釋" note="AI 只根據分群統計摘要命名，不讀取原始聊天內容。"
+        right={usage ? (
+          <div style={{ textAlign: "right" }}>
+            <div className="kicker">TOKEN 用量</div>
+            <div className="num" style={{ fontSize: 22 }}>{usage.total.toLocaleString("en-US")}</div>
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+              輸入 {usage.input.toLocaleString("en-US")} · 輸出 {usage.output.toLocaleString("en-US")}
+            </div>
+          </div>
+        ) : null} />
       <div className="ai-cluster-grid">
         {D.clusterInterpretations.map((item) => (
           <div className="ai-cluster-card" key={item.cluster}>
@@ -147,6 +157,26 @@ function AIClusterInterpretations({ mobile }) {
               {(item.evidence || []).map((e) => <span key={e}>{e}</span>)}
             </div>
             <div className="ai-members">{(item.members || []).join("、")}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExcludedMembersPanel() {
+  const D = window.APP_DATA;
+  const excluded = D.excludedMembers || [];
+  if (!excluded.length) return null;
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <SectionHead kicker="EXCLUDED FROM ANALYSIS" title="未列入分析"
+        note={`發言量佔群組總訊息 ${D.excludeThresholdPct}% 以下，視為短暫加入又退出，不參與分群計算。`} />
+      <div className="excluded-list">
+        {excluded.map((item) => (
+          <div className="excluded-item" key={item.name}>
+            <span className="excluded-name">{item.name}</span>
+            <span className="excluded-meta mono">{item.messageCount} 則訊息 · 佔比 {item.sharePct}%</span>
           </div>
         ))}
       </div>
@@ -282,6 +312,7 @@ function OverviewView({ mobile, onOpenMember, goCharts }) {
       </div>
 
       <AIClusterInterpretations mobile={mobile} />
+      <ExcludedMembersPanel />
 
       {/* 群組之最 */}
       <SectionHead kicker="HALL OF FAME" title="群組之最" note="每個群組都有幾個無法取代的角色。" />

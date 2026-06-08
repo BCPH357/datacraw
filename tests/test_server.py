@@ -51,6 +51,15 @@ def test_frontend_assets_include_threshold_input(client):
     assert "排除低度參與門檻" in views_js
 
 
+def test_frontend_assets_include_excluded_members_and_token_usage_ui(client):
+    views_js = client.get("/app/views.jsx").get_data(as_text=True)
+
+    assert "ExcludedMembersPanel" in views_js
+    assert "未列入分析" in views_js
+    assert "excludedMembers" in views_js
+    assert "tokenUsage" in views_js
+
+
 def test_analyze_returns_app_data(client):
     raw = (ROOT / "tests" / "fixtures" / "sample_chat.txt").read_bytes()
     res = client.post("/analyze", data={"file": (io.BytesIO(raw), "chat.txt")},
